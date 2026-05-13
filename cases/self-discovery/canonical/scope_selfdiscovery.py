@@ -153,7 +153,7 @@ def compute_loss(model, gamma_batch, n_batch, n_colloc=200):
     span_mean = span.mean()
     loss_span = torch.clamp(0.1 - span_mean, min=0.0) ** 2  # 惩罚 span < 0.1
 
-    return loss_ode + 50.0 * loss_span
+    return loss_ode + 100.0 * loss_span
 
 
 # ---------------------------------------------------------------------------
