@@ -197,38 +197,6 @@ def train_single(n_geom, gamma_val, epochs=10000, lr=1e-3, device="cuda", seed=4
         alpha_final = float(model.get_alpha(g_fixed, n_fixed))
     return alpha_final
 
-    optimizer = torch.optim.Adam([
-        {"params": model.C_net.parameters(),     "lr": lr},
-        {"params": model.alpha_net.parameters(), "lr": lr * 0.5},
-    ])
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
-    rng = np.random.default_rng(seed)
-
-    g_fixed = torch.tensor([[gamma_val]], dtype=dtype, device=device)
-    n_fixed = torch.tensor([[float(n_geom)]], dtype=dtype, device=device)
-
-    for epoch in range(1, epochs + 1):
-        # 每次只用这一个gamma，200个配点
-        s = torch.tensor(rng.uniform(0.01, 0.99, (200, 1)), dtype=dtype, device=device)
-        g_t = g_fixed.expand(200, 1)
-        n_t = n_fixed.expand(200, 1)
-
-        optimizer.zero_grad()
-        loss = compute_loss(model, g_fixed, n_fixed, n_colloc=200)
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
-        scheduler.step()
-
-        if epoch % 2000 == 0 or epoch == 1:
-            with torch.no_grad():
-                a = float(model.get_alpha(g_fixed, n_fixed))
-            print(f"  epoch {epoch:6d}  loss={loss.item():.4e}  α={a:.6f}")
-
-    with torch.no_grad():
-        alpha_final = float(model.get_alpha(g_fixed, n_fixed))
-    return alpha_final
-
 
 # ---------------------------------------------------------------------------
 # Evaluate
