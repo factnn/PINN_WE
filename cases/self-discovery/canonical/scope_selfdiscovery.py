@@ -153,7 +153,7 @@ def compute_loss(model, gamma_batch, n_batch, n_colloc=200):
     span_mean = span.mean()
     loss_span = torch.clamp(0.1 - span_mean, min=0.0) ** 2  # 惩罚 span < 0.1
 
-    return loss_ode + 10.0 * loss_span
+    return loss_ode + 50.0 * loss_span
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +177,7 @@ def train_single(n_geom, gamma_val, epochs=10000, lr=1e-3, device="cuda", seed=4
 
     optimizer = torch.optim.Adam([
         {"params": model.C_net.parameters(),     "lr": lr},
-        {"params": model.alpha_net.parameters(), "lr": lr * 0.5},
+        {"params": model.alpha_net.parameters(), "lr": lr * 1.0},
     ])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
 
