@@ -16,3 +16,7 @@ bf2fb78	4.4071	2.5741	4.4071	keep	Exp-08: curriculum training, epochs=30000
 -	4.3775	2.5741	4.3775	keep	Exp-15: lower spherical alpha_init (0.69 instead of 0.71)
 -	4.3772	2.4636	4.3772	discard	Exp-16: n_gammas=32 (no improvement over Exp-15)
 -	4.3995	2.4634	4.3995	discard	Exp-17: second-order smoothness regularization
+-	2.7571	1.4220	2.7571	discard	Exp-18: warmup scheduler (good cylindrical but Exp-19 better combined)
+ba4f5a4	2.1437	2.5741	2.5741	keep	Exp-19: lower spherical alpha_init to 0.67 (CURRENT BEST)
+-	2.1437	2.7235	2.7235	discard	Exp-20: cylindrical alpha_init=0.85 (worse)
+-	4.5165	1.4220	4.5165	discard	Exp-21: alpha_init=0.67 + warmup (regressed spherical)

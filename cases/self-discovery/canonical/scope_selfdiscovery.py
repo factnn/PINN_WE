@@ -167,8 +167,8 @@ def train_curriculum(n_geom, gamma_min, gamma_max, epochs=30000, lr=1e-3, device
     dtype = torch.float64
     model = ScopePINN().to(device).to(dtype)
 
-    # 根据几何设置合理初始值: 球面α∈[0.67,0.76]用0.69, 柱面α∈[0.80,0.86]用0.83
-    alpha_init = 0.67 if n_geom == 3 else 0.83
+    # 根据几何设置合理初始值: 球面α∈[0.67,0.76]用0.67, 柱面α∈[0.80,0.86]用0.81
+    alpha_init = 0.67 if n_geom == 3 else 0.81
     raw_init = float(np.log((alpha_init - 0.5) / (0.5 - (alpha_init - 0.5) + 1e-8)))
     with torch.no_grad():
         model.alpha_net[-1].bias.data.fill_(raw_init)
