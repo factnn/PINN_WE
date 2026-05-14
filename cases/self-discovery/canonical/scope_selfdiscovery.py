@@ -192,8 +192,8 @@ def train_curriculum(n_geom, gamma_min, gamma_max, epochs=30000, lr=1e-3, device
 
         # Final 30%: boundary-biased sampling (Beta(0.5,0.5)) for γ edges
         if epoch > 0.7 * epochs:
-            u = torch.distributions.Beta(torch.tensor(0.5, device=device),
-                                          torch.tensor(0.5, device=device)).sample((n_gammas, 1))
+            u = torch.distributions.Beta(torch.tensor(0.3, device=device),
+                                          torch.tensor(0.3, device=device)).sample((n_gammas, 1))
         else:
             u = torch.rand(n_gammas, 1, device=device, dtype=dtype)
         gamma_vals = curr_min + (curr_max - curr_min) * u.to(dtype)
