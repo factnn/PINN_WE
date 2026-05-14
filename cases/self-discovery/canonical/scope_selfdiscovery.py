@@ -160,8 +160,9 @@ def compute_loss(model, gamma_batch, n_batch, n_colloc=200):
 # Train
 # ---------------------------------------------------------------------------
 
-def train_single(n_geom, gamma_val, epochs=10000, lr=1e-3, device="cuda", seed=42):
-    """训练单个gamma值，纯自发现"""
+def train_curriculum(n_geom, gamma_min, gamma_max, epochs=30000, lr=1e-3, device="cuda", seed=42,
+                     n_gammas=16):
+    """Curriculum训练: gamma范围从窄到宽渐进扩展"""
     torch.manual_seed(seed)
     dtype = torch.float64
     model = ScopePINN().to(device).to(dtype)
@@ -172,8 +173,9 @@ def train_single(n_geom, gamma_val, epochs=10000, lr=1e-3, device="cuda", seed=4
     with torch.no_grad():
         model.alpha_net[-1].bias.data.fill_(raw_init)
 
-    g_fixed = torch.tensor([[gamma_val]], dtype=dtype, device=device)
     n_fixed = torch.tensor([[float(n_geom)]], dtype=dtype, device=device)
+    gamma_mid = 0.5 * (gamma_min + gamma_max)  # 1.6
+    gamma_half_range = 0.5 * (gamma_max - gamma_min)  # 0.4
 
     optimizer = torch.optim.Adam([
         {"params": model.C_net.parameters(),     "lr": lr},
@@ -182,20 +184,32 @@ def train_single(n_geom, gamma_val, epochs=10000, lr=1e-3, device="cuda", seed=4
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
 
     for epoch in range(1, epochs + 1):
+        # Curriculum: progressively expand gamma range
+        # First 20% epochs: narrow range (γ_mid ± 0.1)
+        # Last 80%: linear expansion to full range
+        progress = min(1.0, max(0.0, (epoch / epochs - 0.2) / 0.8))
+        curr_range = gamma_half_range * (0.25 + 0.75 * progress)  # start at 25% of full range
+        curr_min = gamma_mid - curr_range
+        curr_max = gamma_mid + curr_range
+
+        gamma_vals = curr_min + (curr_max - curr_min) * torch.rand(n_gammas, 1,
+                                                                     device=device, dtype=dtype)
+        g_batch = gamma_vals
+        n_batch = n_fixed.expand(n_gammas, -1)
+
         optimizer.zero_grad()
-        loss = compute_loss(model, g_fixed, n_fixed, n_colloc=200)
+        loss = compute_loss(model, g_batch, n_batch, n_colloc=200)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
         scheduler.step()
-        if epoch % 2000 == 0 or epoch == 1:
+        if epoch % 5000 == 0 or epoch == 1:
             with torch.no_grad():
-                a = float(model.get_alpha(g_fixed, n_fixed))
-            print(f"  epoch {epoch:6d}  loss={loss.item():.4e}  α={a:.6f}")
+                g_test = torch.tensor([[gamma_mid]], dtype=dtype, device=device)
+                a = float(model.get_alpha(g_test, n_fixed))
+            print(f"  epoch {epoch:6d}  loss={loss.item():.4e}  α(mid)={a:.6f}  range=[{curr_min:.2f},{curr_max:.2f}]")
 
-    with torch.no_grad():
-        alpha_final = float(model.get_alpha(g_fixed, n_fixed))
-    return alpha_final
+    return model
 
 
 # ---------------------------------------------------------------------------
@@ -252,18 +266,22 @@ def main():
     test_gammas = np.linspace(args.gamma_min, args.gamma_max, 10)
 
     for ax, (n_geom, geo) in zip(axes, [(3, "spherical"), (2, "cylindrical")]):
-        print(f"\n{'='*50}\n{geo} (n={n_geom}): train one gamma at a time")
-        pinn_alphas, ref_alphas, errs = [], [], []
+        print(f"\n{'='*50}\n{geo} (n={n_geom}): curriculum training")
+        model = train_curriculum(n_geom, args.gamma_min, args.gamma_max,
+                                  args.epochs, args.lr, args.device)
 
+        pinn_alphas, ref_alphas, errs = [], [], []
         for g in test_gammas:
             ref = find_eigenvalue(g, n_geom, geo, verbose=False)
             if not ref["alpha"]:
                 pinn_alphas.append(np.nan); ref_alphas.append(np.nan); errs.append(np.nan)
                 continue
-            print(f"\n  γ={g:.3f} (ref α={ref['alpha']:.6f})")
-            alpha_pinn = train_single(n_geom, g, args.epochs, args.lr, args.device)
+            g_t = torch.tensor([[g]], dtype=dtype, device=args.device)
+            n_t = torch.tensor([[float(n_geom)]], dtype=dtype, device=args.device)
+            with torch.no_grad():
+                alpha_pinn = float(model.get_alpha(g_t, n_t))
             err = abs(alpha_pinn - ref["alpha"]) / ref["alpha"] * 100
-            print(f"  → α_pinn={alpha_pinn:.6f}  err={err:.4f}%")
+            print(f"  γ={g:.3f} ref={ref['alpha']:.6f} pinn={alpha_pinn:.6f} err={err:.4f}%")
             pinn_alphas.append(alpha_pinn); ref_alphas.append(ref["alpha"]); errs.append(err)
 
         errs = np.array(errs)
@@ -271,9 +289,6 @@ def main():
         print(f"\n  {geo}: Max={np.nanmax(errs):.4f}%  Mean={np.nanmean(errs):.4f}%")
 
         ax.semilogy(test_gammas[mask], errs[mask], 'o-', color=colors[geo], lw=2, ms=5)
-        ax.set_xlabel(r"$\gamma$"); ax.set_ylabel("α error (%)")
-        ax.set_title(f"Self-discovery SCOPE: {geo}\nMax={np.nanmax(errs):.4f}%")
-        ax.grid(True, alpha=0.3)
         ax.set_xlabel(r"$\gamma$"); ax.set_ylabel("α error (%)")
         ax.set_title(f"Self-discovery SCOPE: {geo}\nMax={np.nanmax(errs):.4f}%")
         ax.grid(True, alpha=0.3)
