@@ -79,9 +79,8 @@ class ScopePINN(nn.Module):
         super().__init__()
         # alpha_net: (gamma, n) -> raw_alpha
         self.alpha_net = nn.Sequential(
-            nn.Linear(2, 32), nn.Tanh(),
-            nn.Linear(32, 32), nn.Tanh(),
-            nn.Linear(32, 32), nn.Tanh(),
+            nn.Linear(2, 32), nn.SiLU(),
+            nn.Linear(32, 32), nn.SiLU(),
             nn.Linear(32, 1),
         )
         # C_net: (s, gamma, n) -> correction
