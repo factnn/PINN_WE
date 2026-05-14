@@ -14,3 +14,5 @@ bf2fb78	4.4071	2.5741	4.4071	keep	Exp-08: curriculum training, epochs=30000
 -	4.4342	2.5339	4.4342	discard	Exp-13: n_colloc=400 (finer ODE resolution)
 -	4.4071	2.5741	4.4071	discard	Exp-14: monotonicity regularization (no change from baseline)
 -	4.3775	2.5741	4.3775	keep	Exp-15: lower spherical alpha_init (0.69 instead of 0.71)
+-	4.3772	2.4636	4.3772	discard	Exp-16: n_gammas=32 (no improvement over Exp-15)
+-	4.3995	2.4634	4.3995	discard	Exp-17: second-order smoothness regularization
