@@ -98,7 +98,8 @@ class ScopePINN(nn.Module):
 
     def get_alpha(self, gamma, n):
         """gamma, n: (B,1) tensors"""
-        inp = torch.cat([gamma, n], dim=1)
+        gamma_norm = (gamma - 1.6) / 0.4  # normalize to roughly [-1, 1] for [1.2, 2.0]
+        inp = torch.cat([gamma_norm, n], dim=1)
         return 0.5 + 0.5 * torch.sigmoid(self.alpha_net(inp))
 
     def forward(self, s, gamma, n):
