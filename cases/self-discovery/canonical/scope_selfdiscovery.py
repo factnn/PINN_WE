@@ -185,15 +185,18 @@ def train_curriculum(n_geom, gamma_min, gamma_max, epochs=30000, lr=1e-3, device
 
     for epoch in range(1, epochs + 1):
         # Curriculum: progressively expand gamma range
-        # First 20% epochs: narrow range (γ_mid ± 0.1)
-        # Last 80%: linear expansion to full range
         progress = min(1.0, max(0.0, (epoch / epochs - 0.2) / 0.8))
-        curr_range = gamma_half_range * (0.25 + 0.75 * progress)  # start at 25% of full range
+        curr_range = gamma_half_range * (0.25 + 0.75 * progress)
         curr_min = gamma_mid - curr_range
         curr_max = gamma_mid + curr_range
 
-        gamma_vals = curr_min + (curr_max - curr_min) * torch.rand(n_gammas, 1,
-                                                                     device=device, dtype=dtype)
+        # Final 30%: boundary-biased sampling (Beta(0.5,0.5)) for γ edges
+        if epoch > 0.7 * epochs:
+            u = torch.distributions.Beta(torch.tensor(0.5, device=device),
+                                          torch.tensor(0.5, device=device)).sample((n_gammas, 1))
+        else:
+            u = torch.rand(n_gammas, 1, device=device, dtype=dtype)
+        gamma_vals = curr_min + (curr_max - curr_min) * u.to(dtype)
         g_batch = gamma_vals
         n_batch = n_fixed.expand(n_gammas, -1)
 
