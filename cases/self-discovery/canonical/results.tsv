@@ -1,1 +1,16 @@
 commit	sph_max	cyl_max	combined	status	description
+cf4b2af	5.6515	3.0870	5.6515	keep	baseline: alpha_net_lr=0.3x, epochs=10000, span_w=10, span_thr=0.1
+3842ceb	5.4664	1.8680	5.4664	keep	Exp-02: alpha_net_lr=0.5x, epochs=30000
+ebab9d7	5.4617	1.8558	5.4617	keep	Exp-03: alpha_net_lr=1.0x, epochs=30000
+d9aabda	5.4617	1.8558	5.4617	keep	Exp-04: span_weight=100.0, alpha_net_lr=1.0x, epochs=30000
+2e1292e	-	-	-	incomplete	Exp-05: deeper alpha_net (3 hidden layers), epochs=30000
+8e3568b	-	-	-	incomplete	Exp-06: SiLU activation for alpha_net, epochs=30000
+bf2fb78	4.4071	2.5741	4.4071	keep	Exp-08: curriculum training, epochs=30000
+-	4.3765	2.9323	4.3765	discard	Exp-09: epochs=50000 with curriculum (marginal)
+-	4.5182	2.8872	4.5182	discard	Exp-10: wider alpha_net (64) with curriculum
+-	4.3657	2.5613	4.3657	discard	Exp-11a: span_thr=0.05 (span constraint inactive)
+-	4.3657	2.5613	4.3657	discard	Exp-11b: span_thr=0.2 (span constraint inactive)
+-	7.9900	1.6506	7.9900	discard	Exp-12: slower curriculum (15% at 40%, cosine schedule)
+-	4.4342	2.5339	4.4342	discard	Exp-13: n_colloc=400 (finer ODE resolution)
+-	4.4071	2.5741	4.4071	discard	Exp-14: monotonicity regularization (no change from baseline)
+-	4.3775	2.5741	4.3775	keep	Exp-15: lower spherical alpha_init (0.69 instead of 0.71)
