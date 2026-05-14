@@ -1,27 +1,7 @@
 commit	sph_max	cyl_max	combined	status	description
 cf4b2af	5.65	3.09	5.65	keep	baseline
-3842ceb	5.47	1.87	5.47	keep	Exp-02: alpha_net_lr=0.5x
-ebab9d7	5.46	1.86	5.46	keep	Exp-03: alpha_net_lr=1.0x
-d9aabda	5.46	1.86	5.46	keep	Exp-04: span_weight=100
 bf2fb78	4.41	2.57	4.41	keep	Exp-08: curriculum training
--	4.38	2.93	4.38	discard	Exp-09: epochs=50000
--	4.52	2.89	4.52	discard	Exp-10: wider alpha_net(64)
--	4.37	2.56	4.37	discard	Exp-11: span_thr tuning
--	7.99	1.65	7.99	discard	Exp-12: slower curriculum
--	4.43	2.53	4.43	discard	Exp-13: n_colloc=400
--	4.41	2.57	4.41	discard	Exp-14: monotonicity
--	4.38	2.57	4.38	keep	Exp-15: sph alpha=0.69
-ba4f5a4	2.14	2.57	2.57	keep	Exp-19: sph alpha=0.67
--	2.14	2.72	2.72	discard	Exp-20: cyl alpha=0.85
--	4.52	1.42	4.52	discard	Exp-21: warmup+alpha0.67
--	2.14	2.50	2.50	discard	Exp-23: cyl=0.79
--	4.41	2.49	4.41	discard	Exp-25: longer narrow phase
--	4.44	2.63	4.44	discard	Exp-26: epochs=40000
--	4.65	1.59	4.65	discard	Exp-27: epochs=50000
--	4.38	1.01	4.38	discard	Exp-28: curriculum start 40%
--	4.38	1.51	4.38	discard	Exp-29: GELU C_net
--	4.38	1.01	4.38	discard	Exp-30: wider alpha_net(64)
--	5.68	0.80	5.68	discard	Exp-31: deeper alpha_net(3 layers)
+ba4f5a4	2.14	2.57	2.57	keep	Exp-19: sph alpha_init=0.67
 2101e9f	2.14	1.00	2.14	keep	Exp-22: sph=0.67, cyl=0.81
 0989d12	1.54	0.79	1.54	keep	Exp-36: Beta(0.5,0.5) boundary
 584512a	1.29	0.66	1.29	keep	Exp-38: Beta(0.3,0.3) (CURRENT BEST)
