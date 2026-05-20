@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from kernels.stencil_2d import ns2d_residual_triton
+from kernels.stencil_2d import ns2d_residual_triton, ns2d_fwd_kernel, ns2d_bwd_kernel
 
 nu = 0.01
 Nx, Ny, Nt = 64, 64, 20
@@ -81,22 +81,47 @@ def ic_bc_loss(U, V, U_exact, V_exact):
 
 
 class _NSTriton(torch.autograd.Function):
+    """Triton forward+backward for TGV (no pressure). Uses P=zeros internally."""
     @staticmethod
     def forward(ctx, U, V, dx, dy, dt):
+        U, V = U.contiguous(), V.contiguous()
+        Nt, Nx, Ny = U.shape
+        # P=zeros for the no-pressure TGV formulation
+        P = torch.zeros_like(U)
+        res_u = torch.empty((Nt-2, Nx-2, Ny-2), device=U.device, dtype=U.dtype)
+        res_v = torch.empty_like(res_u)
+        res_div = torch.empty_like(res_u)
+        BLOCK_X, BLOCK_Y = 16, 16
+        grid = (Nt-2, (Nx-2+BLOCK_X-1)//BLOCK_X, (Ny-2+BLOCK_Y-1)//BLOCK_Y)
+        ns2d_fwd_kernel[grid](U, V, P, res_u, res_v, res_div,
+                              Nt, Nx, Ny, dx, dy, dt, nu, BLOCK_X, BLOCK_Y)
         ctx.save_for_backward(U, V)
+        ctx.res_u, ctx.res_v = res_u, res_v
         ctx.dx, ctx.dy, ctx.dt = dx, dy, dt
-        return ns2d_residual_triton(U.contiguous(), V.contiguous(), dx, dy, dt, nu)
+        return (res_u**2 + res_v**2).mean()
 
     @staticmethod
-    def backward(ctx, grad):
+    def backward(ctx, grad_out):
         U, V = ctx.saved_tensors
+        res_u, res_v = ctx.res_u, ctx.res_v
         dx, dy, dt = ctx.dx, ctx.dy, ctx.dt
-        U_ad = U.detach().requires_grad_(True)
-        V_ad = V.detach().requires_grad_(True)
-        with torch.enable_grad():
-            loss = pde_residual_pytorch(U_ad, V_ad, dx, dy, dt)
-        loss.backward(grad)
-        return U_ad.grad, V_ad.grad, None, None, None
+        Nt, Nx, Ny = U.shape
+        N_total = res_u.numel()  # (res_u + res_v) each have same numel
+        scale = (2.0 / N_total) * grad_out
+        Gu = res_u * scale
+        Gv = res_v * scale
+        # P gradient is irrelevant for no-P formulation
+        Gdiv = torch.zeros_like(res_u)
+        grad_u = torch.zeros_like(U)
+        grad_v = torch.zeros_like(V)
+        grad_p = torch.zeros_like(U)
+        BLOCK_X, BLOCK_Y = 16, 16
+        grid = (Nt-2, (Nx-2+BLOCK_X-1)//BLOCK_X, (Ny-2+BLOCK_Y-1)//BLOCK_Y)
+        ns2d_bwd_kernel[grid](
+            U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p,
+            Nt, Nx, Ny, dx, dy, dt, nu, BLOCK_X, BLOCK_Y
+        )
+        return grad_u, grad_v, None, None, None
 
 
 def train(backend, epochs=5000, lr=1e-3, loss_threshold=1e-3):
