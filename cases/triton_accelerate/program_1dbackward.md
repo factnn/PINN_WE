@@ -17,8 +17,10 @@ Read these files once:
 ## Current state
 
 - Triton backward kernel 通过了梯度精度测试（err 2.63e-15）
-- **但端到端训练有问题**：loss 卡在 9.65e-4（1e-4 阈值达不到），L2=13.9%
-- 对比：canpinn（PyTorch FD）同样条件下 T2S=201.8s，L2=0.18%
+- **边界梯度 bug 已修复**（burgers_2d_bwd_kernel 只算 interior，边界贡献为 0）
+- **T2S=84.2s, L2=0.23%**（cosine LR, lr=2e-3）
+- 对比 canpinn 基线：T2S=201.8s, L2=0.18%
+- Triton 比 canpinn **快 2.4x**，L2 略高但 < 1%
 
 ## Root cause to investigate
 
