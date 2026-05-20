@@ -1,104 +1,86 @@
 # autoresearch-TritonBackward-1D
 
-自动实现 1D Burgers 方程的 Triton adjoint backward kernel。
+用 Triton backward kernel 跑 1D Burgers 端到端训练，修到收敛正确为止。
 
 ## Setup (do once)
 
 ```bash
 source /share/project/zhaohuxing/anaconda3/bin/activate PINN_WE
 cd /share/project/zpy/PINN_WE/cases/triton_accelerate
-git checkout -b autoresearch/triton-bwd-1d-$(date +%Y%m%d) 2>/dev/null || true
 ```
 
-Read `kernels/stencil_1d.py` once at the start.
+Read these files once:
+- `kernels/stencil_1d.py` — Triton forward + backward kernel
+- `baseline/burgers_1d_triton.py` — 训练脚本
+- `baseline/common_1d.py` — 共用训练逻辑
 
-## Task
+## Current state
 
-**Goal**: Add a Triton backward kernel to `kernels/stencil_1d.py` that correctly computes `∂Loss/∂U`.
+- Triton backward kernel 通过了梯度精度测试（err 2.63e-15）
+- **但端到端训练有问题**：loss 卡在 9.65e-4（1e-4 阈值达不到），L2=13.9%
+- 对比：canpinn（PyTorch FD）同样条件下 T2S=201.8s，L2=0.18%
 
-**Current state**:
-- Forward: `burgers_residual_triton(u, dx)` — Triton kernel, correct
-- Backward: PyTorch fallback in `_BurgersTriton.backward()` in `baseline/burgers_1d_compare.py`
-- Need: replace fallback with Triton kernel
+## Root cause to investigate
 
-**Success criterion**: `Max grad err < 1e-5` vs PyTorch autograd reference.
+1. `burgers_2d_loss_triton_autograd` 和 `loss_canpinn` 计算的 loss 值是否完全一致？
+2. Triton kernel 的 forward 是否和 PyTorch 差分算的残差完全一样？（时间差分 + 空间差分 + 非线性项 + BC/IC 的处理方式）
+3. 训练脚本里 `loss_fn` 的写法是否正确？目前是：
+   ```python
+   burgers_2d_loss_triton_autograd(U, dx, dt, nu_val) + 10*ic_loss_from_U(U,X) + 10*bc_loss_from_U(U)
+   ```
+   而 canpinn 是：
+   ```python
+   loss_canpinn(model, X, T, dx, dt) + 10*ic_loss_from_U(U,X) + 10*bc_loss_from_U(U)
+   ```
+   注意 `loss_canpinn` 内部会重新跑 model forward，而 Triton 版直接用 U。
 
-Test by running:
-```bash
-CUDA_VISIBLE_DEVICES=0 python kernels/stencil_1d.py
-```
+## What to do
 
-## Physics: 1D Burgers Adjoint
+### Step 1: 诊断 loss 差异
 
-Residual: `res[i] = u[i] * (u[i+1]-u[i-1])/(2dx) - ν*(u[i+1]-2u[i]+u[i-1])/dx²`
-
-Loss = `mean(res²)`, so upstream gradient: `G[i] = 2*res[i]/N`
-
-**grad_U[i]** — contributions from all residual points that used U[i]:
-
-```
-# From res[i] directly (u_c * u_x, u_xx center):
-grad_U[i] += G[i] * (u[i+1]-u[i-1])/(2dx)      # ∂(u_c*u_x)/∂u_c
-grad_U[i] += -ν * (-2) * G[i] / dx²              # ∂(-ν*u_xx)/∂u_c = +2ν*G[i]/dx²
-
-# From res[i-1] (u[i] appears as u_xp = u[(i-1)+1]):
-grad_U[i] += G[i-1] * u[i-1] / (2dx)            # ∂(u_c[i-1]*u_x[i-1])/∂u[i]
-grad_U[i] += -ν * G[i-1] / dx²                   # ∂(-ν*u_xx[i-1])/∂u_xp
-
-# From res[i+1] (u[i] appears as u_xm = u[(i+1)-1]):
-grad_U[i] -= G[i+1] * u[i+1] / (2dx)            # ∂(u_c[i+1]*u_x[i+1])/∂u[i]
-grad_U[i] += -ν * G[i+1] / dx²                   # ∂(-ν*u_xx[i+1])/∂u_xm
-```
-
-Combined:
-```
-grad_U[i] = G[i] * (u[i+1]-u[i-1])/(2dx) + 2ν*G[i]/dx²
-          + G[i-1] * u[i-1]/(2dx) - ν*G[i-1]/dx²
-          - G[i+1] * u[i+1]/(2dx) - ν*G[i+1]/dx²
-```
-
-Boundary: grad_U[0] = grad_U[N-1] = 0 (Dirichlet BC).
-
-## What to implement
-
-Add to `kernels/stencil_1d.py`:
-1. `burgers_bwd_kernel`: Triton kernel computing grad_U from G and U
-2. `burgers_backward_triton(u, res, dx)`: Python wrapper
-3. Update `_BurgersTriton.backward()` in `baseline/burgers_1d_compare.py` to use it
-
-## Test code to add to stencil_1d.py __main__
-
+写一段诊断代码，用同一个 model 和同一个 U，比较：
 ```python
-# Gradient check
-import numpy as np
-N = 1024; device = "cuda"
-x = torch.linspace(-1, 1, N, device=device)
-dx = float(x[1]-x[0])
-u = torch.sin(np.pi * x).requires_grad_(True)
-u2 = u.detach().clone().requires_grad_(True)
+loss_canpinn_val = loss_canpinn(model, X, T, dx, dt).item()
+loss_triton_val = burgers_2d_loss_triton_autograd(U, dx, dt, nu).item()
+print(f"canpinn: {loss_canpinn_val}  triton: {loss_triton_val}  diff: {abs(loss_canpinn_val-loss_triton_val)}")
+```
 
-# PyTorch reference
-from baseline.burgers_1d_compare import loss_canpinn_raw  # u*u_x - nu*u_xx
-res_pt = (u[2:]-u[:-2])/(2*dx)*u[1:-1] - (0.01/np.pi)*(u[2:]-2*u[1:-1]+u[:-2])/dx**2
-loss_pt = res_pt.pow(2).mean()
-loss_pt.backward()
+如果两者不同，说明 forward 计算方式不一致（比如边界处理、u_t 的差分方式等），需要对齐。
 
-# Triton
-loss_tr = burgers_residual_triton(u2, dx)  # must support backward
-loss_tr.backward()
+### Step 2: 对齐后重新训练
 
-print(f"Grad err: {(u.grad[1:-1] - u2.grad[1:-1]).abs().max().item():.2e}")
+修改 `kernels/stencil_1d.py` 中的 kernel 或 `baseline/burgers_1d_triton.py` 中的 `loss_fn`，确保 loss 值和 canpinn 完全一致。
+
+### Step 3: 跑端到端训练验证
+
+```bash
+rm -f output/burgers_1d/model_triton.pt output/burgers_1d/meta_triton.npy
+CUDA_VISIBLE_DEVICES=0 python baseline/burgers_1d_triton.py --max-epochs 200000 --threshold 1e-4 --gpu 0
+```
+
+### Step 4: 对比结果
+
+**必须达到**：
+- T2S 有值（loss < 1e-4）
+- L2 < 1%（和 canpinn 的 0.18% 相当）
+- Avg_Step_ms < canpinn 的 6.09ms
+
+**参考基线**（canpinn 已有结果）：
+```
+T2S=201.8s  Epochs=32917  Avg_Step=6.09ms  Mem=0.230GB  L2=0.18%
 ```
 
 ## Experiment loop
 
 LOOP FOREVER:
-1. Read current `ns2d_bwd_kernel` / `burgers_bwd_kernel` implementation
-2. Run test, check grad error
-3. If error > 1e-5: identify wrong term from physics above, fix it, `git commit`
-4. If error < 1e-5: update `_BurgersTriton.backward()` to use Triton kernel, verify end-to-end training still converges
-5. **DONE** when grad err < 1e-5 AND training converges
+1. 诊断 loss 差异（Step 1）
+2. 修 kernel 或 loss_fn 对齐
+3. `git commit -m "bwd: <description>"`
+4. 跑训练验证（Step 3），用 `sleep 600` 等待，不要频繁轮询
+5. 提取结果：`grep -E "Summary|T2S|Avg_Step|L2" run.log`
+6. 如果 T2S 有值且 L2 < 1%：**DONE**
+7. 如果没收敛：分析原因，回到 Step 1
 
-**Context management**: `/compact` when near limit, re-read `kernels/stencil_1d.py` to recover.
+**Context management**: `/compact` when near limit, re-read this file and `kernels/stencil_1d.py`.
 
-**NEVER STOP** until done.
+**NEVER STOP** until T2S exists and L2 < 1%.

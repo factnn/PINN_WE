@@ -1,14 +1,20 @@
 """Track 1 throughput for 1D Burgers: warmup 50, measure 2950 steps, 5 runs."""
-import sys, time, os
+import sys, time, os, shutil
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Clear Triton cache
+triton_cache = os.path.expanduser('~/.triton/cache')
+if os.path.exists(triton_cache):
+    shutil.rmtree(triton_cache)
 
 import torch
 import numpy as np
 import triton
 import argparse
 from baseline.common_1d import MLP, make_grid, ic_loss_from_U, bc_loss_from_U
-from baseline.burgers_1d_compare import loss_vanilla, loss_canpinn, loss_triton
+from baseline.burgers_1d_compare import loss_vanilla, loss_canpinn
+from kernels.stencil_1d import burgers_2d_loss_triton_autograd
 
 A100_BW_GBS = 1555.0
 BYTES_PER_STEP = 1024 * 100 * 4 * 6  # Nt*Nx*float32*accesses
@@ -23,8 +29,9 @@ def make_loss(backend):
         def fn(model, U, X, T, dx, dt):
             return loss_canpinn(model, X, T, dx, dt) + 10*ic_loss_from_U(U,X) + 10*bc_loss_from_U(U)
     else:
+        nu_val = 0.01 / np.pi
         def fn(model, U, X, T, dx, dt):
-            return loss_triton(U, dx, dt) + 10*ic_loss_from_U(U,X) + 10*bc_loss_from_U(U)
+            return burgers_2d_loss_triton_autograd(U, dx, dt, nu_val) + 10*ic_loss_from_U(U,X) + 10*bc_loss_from_U(U)
     return fn
 
 def make_model(backend):
