@@ -259,6 +259,39 @@ def burgers_2d_backward_triton(U: torch.Tensor, res: torch.Tensor, dx: float, dt
     BLOCK_X = 128
     grid = (Nt - 2, (Nx - 2 + BLOCK_X - 1) // BLOCK_X)
     burgers_2d_bwd_kernel[grid](U, G, grad_U, Nt, Nx, dx, dt, nu_val, BLOCK_X)
+
+    # --- Boundary gradient contributions ---
+    # The kernel only covers interior i in [1,Nt-2], j in [1,Nx-2].
+    # Boundary points (t=0, t=Nt-1, x=0, x=Nx-1) receive PDE gradient from
+    # being neighbors in the stencil. We compute these analytically.
+    inv_2dx = 1.0 / (2.0 * dx)
+    inv_dx2 = 1.0 / (dx * dx)
+    inv_2dt = 1.0 / (2.0 * dt)
+
+    # t=0 boundary: U[0, 1:Nx-1] appears as u_tm in res[0, :]
+    # dLoss/dU[0,j] from res[0,j-1] as u_tm = -G[0,j-1] / (2*dt)
+    grad_U[0, 1:-1] += -G[0, :] * inv_2dt
+
+    # t=Nt-1 boundary: U[Nt-1, 1:Nx-1] appears as u_tp in res[Nt-3, :]
+    # dLoss/dU[Nt-1,j] from res[Nt-3,j-1] as u_tp = G[Nt-3,:] / (2*dt)
+    grad_U[Nt-1, 1:-1] += G[Nt-3, :] * inv_2dt
+
+    # x=0 boundary: U[1:Nt-1, 0] appears as u_l/u_xm in res[:, 0]
+    # dLoss/dU[i,0]:
+    #   from res[i-1,0] as u_l (u_x term): -G[i-1,0] * U[i,1]/(2dx)  (wait: res uses u_c*u_x)
+    #   from res[i-1,0] as u_xx left: -nu * G[i-1,0] / dx²
+    # More precisely: res[t,x] uses u_c at (t+1,x+1), u_l at (t+1,x), u_r at (t+1,x+2)
+    #   dRes/du_l = -u_c/(2dx) - nu/dx²
+    # U[i,0] is u_l of res[i-1,0]: -G[i-1,0] * (U[i,1]/(2dx) + nu/dx²)
+    if Nx > 2:
+        grad_U[1:-1, 0] += -G[:, 0] * (U[1:-1, 1] * inv_2dx + nu_val * inv_dx2)
+
+    # x=Nx-1 boundary: U[1:Nt-1, Nx-1] appears as u_r/u_xp in res[:, Nx-3]
+    #   dRes/du_r = u_c/(2dx) - nu/dx²
+    # U[i,Nx-1] is u_r of res[i-1,Nx-3]: G[i-1,Nx-3] * (U[i,Nx-2]/(2dx) - nu/dx²)
+    if Nx > 2:
+        grad_U[1:-1, Nx-1] += G[:, Nx-3] * (U[1:-1, Nx-2] * inv_2dx - nu_val * inv_dx2)
+
     return grad_U
 
 
