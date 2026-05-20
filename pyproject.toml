@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pinn-we"
+version = "0.1.0"
+description = "Physics-Informed Neural Networks for compressible Euler equations"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "PINN_WE Contributors"}
+]
+keywords = ["physics-informed neural networks", "PINNs", "Euler equations", "CFD", "deep learning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+]
+
+dependencies = [
+    "torch>=2.7.0",
+    "numpy>=2.0.0",
+    "scipy>=1.15.0",
+    "matplotlib>=3.10.0",
+    "smt>=2.10.0",
+    "triton>=3.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
+]
+
+docs = [
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/factnn/PINN_WE"
+Repository = "https://github.com/factnn/PINN_WE"
+Issues = "https://github.com/factnn/PINN_WE/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["PINNsrc*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.venv-1
+  | __pycache__
+  | build
+  | dist
+  | output
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+known_first_party = ["PINNsrc"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "cases"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=PINNsrc --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["PINNsrc"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    ".venv/*",
+    ".venv-1/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

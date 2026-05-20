@@ -1,0 +1,47 @@
+{
+
+  "permissions": {
+    "allow": [
+      "Bash(comm:*)",
+      "Bash(git checkout:*)",
+      "Bash(xargs git rm)",
+      "Bash(git ls-tree:*)",
+      "Bash(git push:*)",
+      "Bash(ls:*)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(tee:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(git pull:*)",
+      "Bash(src/flag_gems/experimental_ops/_adaptive_avg_pool2d.py )",
+      "Bash(src/flag_gems/experimental_ops/_functional_sym_constrain_range_for_size.py )",
+      "Bash(src/flag_gems/experimental_ops/_log_softmax_backward_data.py )",
+      "Bash(src/flag_gems/experimental_ops/_upsample_nearest_exact3d.py )",
+      "Bash(src/flag_gems/experimental_ops/arccosh.py )",
+      "Bash(src/flag_gems/experimental_ops/arccosh_.py )",
+      "Bash(src/flag_gems/experimental_ops/arcsinh.py )",
+      "Bash(src/flag_gems/experimental_ops/arctanh_.py )",
+      "Bash(src/flag_gems/experimental_ops/atanh_.py )",
+      "Bash(src/flag_gems/experimental_ops/ceil_.py )",
+      "Bash(src/flag_gems/experimental_ops/deg2rad_.py )",
+      "Bash(src/flag_gems/experimental_ops/exp_tests/_adaptive_avg_pool2d_test.py )",
+      "Bash(src/flag_gems/experimental_ops/exp_tests/_functional_sym_constrain_range_for_size_test.py )",
+      "Bash(src/flag_gems/experimental_ops/exp_tests/_log_softmax_backward_data_test.py )",
+      "Bash(src/flag_gems/experimental_ops/exp_tests/_upsample_nearest_exact3d_test.py )",
+      "Bash(src/flag_gems/experimental_ops/exp_tests/arccosh_test.py )",
+      "Bash(src/flag_gems/experimental_ops/exp_tests/arccosh__test.py )",
+      "Bash(src/flag_gems/experimental_ops/exp_tests/arcsinh_test.py )",
+      "Bash(src/flag_gems/experimental_ops/exp_tests/arctanh__test.py )",
+      "Bash(src/flag_gems/experimental_ops/exp_tests/atanh__test.py )",
+      "Bash(src/flag_gems/experimental_ops/exp_tests/ceil__test.py )",
+      "Bash(src/flag_gems/experimental_ops/exp_tests/deg2rad__test.py)",
+      "Bash(pre-commit run:*)",
+      "Bash(git mv:*)",
+      "Bash(git commit:*)",
+      "Bash(pytest:*)"
+    ]
+  }
+}

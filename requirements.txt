@@ -1,0 +1,7 @@
+# Core dependencies for PINN_WE
+torch>=2.7.0
+numpy>=2.0.0
+scipy>=1.15.0
+matplotlib>=3.10.0
+smt>=2.10.0
+triton>=3.5.0
