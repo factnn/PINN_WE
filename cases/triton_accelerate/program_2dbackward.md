@@ -99,3 +99,14 @@ LOOP FOREVER:
 **Context management**: `/compact` when near limit, re-read `kernels/stencil_2d.py`.
 
 **NEVER STOP** until done.
+
+---
+
+## ✅ DONE
+
+- `ns2d_bwd_kernel` 所有伴随符号错误已修复
+- `_NS2DTriton.backward()` 已用 Triton kernel 替换 PyTorch fallback
+- 梯度精度：gradU 1.8e-11, gradV 1.8e-11, gradP 3.3e-11（目标 < 1e-5）
+- `_NSTriton` (TGV 无 P) 也已切换为 Triton backward
+- TGV 训练验证：Triton 137s loss=0.218 vs canpinn 275s loss=0.270（2x 加速 + 更好精度）
+- 多分辨率测试全部 PASS（6x16x16 ~ 20x64x64）
