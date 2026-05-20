@@ -79,7 +79,7 @@ def train_and_save(backend_name, loss_fn, model_fn=None,
     for run_i in range(runs):
         model = (model_fn() if model_fn else MLP()).to(device)
         opt = torch.optim.Adam(model.parameters(), lr=lr)
-        sch = torch.optim.lr_scheduler.StepLR(opt, step_size=10000, gamma=0.5)
+        sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max_epochs, eta_min=1e-6)
 
         history = []; t2s = None; t2s_ep = None; step_times = []; t0 = time.time()
         for ep in range(1, max_epochs+1):
