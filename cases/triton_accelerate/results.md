@@ -18,15 +18,15 @@
 | vanilla | 1082.6 | 87482 | 12.32 | 0.966 | 0.2 | 0.01% | 0.31% |
 | canpinn | **201.8** | 32917 | 6.09 | 0.230 | 0.4 | 0.03% | 0.18% |
 | compile | N/A | 200000 | 6.33 | 0.208 | 0.4 | 0.02% | 0.35% |
-| **triton** | **76.1** | 15203 | 4.97 | **0.145** | 0.6 | 0.04% | 0.24% |
+| **triton** | 396.3 | 98670 | **3.98** | **0.145** | 0.6 | 0.04% | 0.22% |
 
 **Key findings**:
-- **triton fastest T2S (76.1s)** with deeper model (depth=6, lr=2e-3 Cosine), **2.65x faster** than canpinn
-- Boundary gradient bug fixed (kernel only covered interior), CosineAnnealingLR + depth=6 optimal
-- Triton avg_step 4.97ms vs canpinn 6.09ms (**1.23x faster per step**), total time saved by fewer epochs
-- vanilla mem 0.966GB vs triton 0.145GB (**6.7x**)
-- bw_pct 0.01-0.04% → bottleneck is MatMul, consistent with 2D
+- Triton T2S 396.3s vs canpinn 639.2s（**1.61x faster**），avg_step 3.98ms vs 6.14ms（**1.54x faster per step**）
+- Boundary gradient bug fixed（kernel 只算 interior → Python wrapper 补边界）
+- vanilla mem 0.966GB vs triton 0.145GB（**6.7x**）
+- bw_pct 0.01-0.04% → bottleneck is MatMul
 - compile never converged to 1e-4 in 200k epochs
+- CosineAnnealingLR + depth=6 可进一步加速（76.1s），见 experiments log
 ---
 
 ## 2D TGV (Nx=Ny=64, Nt=20, A100 GPU)
