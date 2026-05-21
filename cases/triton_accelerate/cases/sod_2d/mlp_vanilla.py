@@ -1,7 +1,7 @@
 """Euler 2D (Sod) - MLP Vanilla PINN (autograd)."""
 import sys, os; sys.path.insert(0, __import__('pathlib').Path(__file__).parent.parent.parent.__str__())
 import torch
-from cases.euler_2d.common import *
+from cases.sod_2d.common import *
 
 def loss_fn(model, xt, X, T, dx, dt):
     xt_g = xt.detach().requires_grad_(True)

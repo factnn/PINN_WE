@@ -1,8 +1,8 @@
 """AdvDiff 2D - Phy-CNN + Triton fused kernel (full Triton fwd+bwd)."""
 import sys, os; sys.path.insert(0, __import__('pathlib').Path(__file__).parent.parent.parent.__str__())
 import torch
-from cases.advdiff_2d.common import *
-from kernels.stencil_advdiff import advdiff_residual_triton
+from cases.transport_2d.common import *
+from kernels.stencil_2d_transport import advdiff_residual_triton
 
 def loss_fn(model, xyt, X, Y, T, C_exact, dx, dy, dt):
     C = infer(model, xyt, X, Y, T)

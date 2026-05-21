@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from kernels.stencil_2d_unsteady import ns2d_residual_triton, ns2d_fwd_kernel, ns2d_bwd_kernel, _add_boundary_gradients
+from kernels.stencil_2d_ns_unsteady import ns2d_residual_triton, ns2d_fwd_kernel, ns2d_bwd_kernel, _add_boundary_gradients
 
 nu = 0.01
 Nx, Ny, Nt = 64, 64, 20

@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from kernels.stencil_2d import ns2d_residual_triton
+from kernels.stencil_2d_ns_unsteady import ns2d_residual_triton
 
 Re = 100.0
 nu = 1.0 / Re
@@ -38,10 +38,11 @@ class MLP(nn.Module):
         self.net = nn.Sequential(*layers)
         self.out_u = nn.Linear(width, 1)
         self.out_v = nn.Linear(width, 1)
+        self.out_p = nn.Linear(width, 1)
 
     def forward(self, xy):
         h = self.net(xy)
-        return self.out_u(h).squeeze(-1), self.out_v(h).squeeze(-1)
+        return self.out_u(h).squeeze(-1), self.out_v(h).squeeze(-1), self.out_p(h).squeeze(-1)
 
 
 def make_grid():
@@ -52,8 +53,8 @@ def make_grid():
     return X, Y, dx, dy
 
 
-def pde_residual_pytorch_steady(U, V, dx, dy):
-    """Steady NS: u*u_x + v*u_y = nu*(u_xx+u_yy), same for v."""
+def pde_residual_pytorch_steady(U, V, P, dx, dy):
+    """Steady incompressible NS with P and div."""
     u_x  = (U[2:,1:-1] - U[:-2,1:-1]) / (2*dx)
     u_y  = (U[1:-1,2:] - U[1:-1,:-2]) / (2*dy)
     u_xx = (U[2:,1:-1] - 2*U[1:-1,1:-1] + U[:-2,1:-1]) / dx**2
@@ -62,10 +63,13 @@ def pde_residual_pytorch_steady(U, V, dx, dy):
     v_y  = (V[1:-1,2:] - V[1:-1,:-2]) / (2*dy)
     v_xx = (V[2:,1:-1] - 2*V[1:-1,1:-1] + V[:-2,1:-1]) / dx**2
     v_yy = (V[1:-1,2:] - 2*V[1:-1,1:-1] + V[1:-1,:-2]) / dy**2
+    p_x  = (P[2:,1:-1] - P[:-2,1:-1]) / (2*dx)
+    p_y  = (P[1:-1,2:] - P[1:-1,:-2]) / (2*dy)
     u_c = U[1:-1,1:-1]; v_c = V[1:-1,1:-1]
-    res_u = u_c*u_x + v_c*u_y - nu*(u_xx+u_yy)
-    res_v = u_c*v_x + v_c*v_y - nu*(v_xx+v_yy)
-    return (res_u**2 + res_v**2).mean()
+    res_u = u_c*u_x + v_c*u_y + p_x - nu*(u_xx+u_yy)
+    res_v = u_c*v_x + v_c*v_y + p_y - nu*(v_xx+v_yy)
+    res_div = u_x + v_y
+    return (res_u**2 + res_v**2 + res_div**2).mean()
 
 
 def bc_loss(U, V):
@@ -91,27 +95,31 @@ def train(backend, epochs=5000, lr=1e-3, loss_threshold=1e-3):
 
     for ep in range(1, epochs+1):
         opt.zero_grad()
-        u_flat, v_flat = model(xy)
+        u_flat, v_flat, p_flat = model(xy)
         U = u_flat.reshape(Nx, Ny)
         V = v_flat.reshape(Nx, Ny)
+        P = p_flat.reshape(Nx, Ny)
 
         if backend == "vanilla":
             xy_g = xy.detach().requires_grad_(True)
-            u_g, v_g = model(xy_g)
-            u_g = u_g.reshape(Nx,Ny); v_g = v_g.reshape(Nx,Ny)
+            u_g, v_g, p_g = model(xy_g)
+            u_g = u_g.reshape(Nx,Ny); v_g = v_g.reshape(Nx,Ny); p_g = p_g.reshape(Nx,Ny)
             gu = torch.autograd.grad(u_g.sum(), xy_g, create_graph=True)[0]
             gv = torch.autograd.grad(v_g.sum(), xy_g, create_graph=True)[0]
+            gp = torch.autograd.grad(p_g.sum(), xy_g, create_graph=True)[0]
             u_x=gu[:,0].reshape(Nx,Ny); u_y=gu[:,1].reshape(Nx,Ny)
             v_x=gv[:,0].reshape(Nx,Ny); v_y=gv[:,1].reshape(Nx,Ny)
+            p_x=gp[:,0].reshape(Nx,Ny); p_y=gp[:,1].reshape(Nx,Ny)
             u_xx=torch.autograd.grad(u_x.sum(),xy_g,create_graph=True)[0][:,0].reshape(Nx,Ny)
             u_yy=torch.autograd.grad(u_y.sum(),xy_g,create_graph=True)[0][:,1].reshape(Nx,Ny)
             v_xx=torch.autograd.grad(v_x.sum(),xy_g,create_graph=True)[0][:,0].reshape(Nx,Ny)
             v_yy=torch.autograd.grad(v_y.sum(),xy_g,create_graph=True)[0][:,1].reshape(Nx,Ny)
-            res_u=u_g*u_x+v_g*u_y-nu*(u_xx+u_yy)
-            res_v=u_g*v_x+v_g*v_y-nu*(v_xx+v_yy)
-            loss_pde=(res_u**2+res_v**2).mean()
+            res_u=u_g*u_x+v_g*u_y+p_x-nu*(u_xx+u_yy)
+            res_v=u_g*v_x+v_g*v_y+p_y-nu*(v_xx+v_yy)
+            res_div=u_x+v_y
+            loss_pde=(res_u**2+res_v**2+res_div**2).mean()
         else:
-            loss_pde = pde_residual_pytorch_steady(U, V, dx, dy)
+            loss_pde = pde_residual_pytorch_steady(U, V, P, dx, dy)
 
         loss = loss_pde + 10*bc_loss(U, V)
         loss.backward(); opt.step(); sch.step()
@@ -131,7 +139,7 @@ def train(backend, epochs=5000, lr=1e-3, loss_threshold=1e-3):
 def plot_results(model, X, Y, name):
     xy = torch.stack([X.flatten(), Y.flatten()], dim=1)
     with torch.no_grad():
-        u_flat, v_flat = model(xy)
+        u_flat, v_flat, _ = model(xy)
     U = u_flat.reshape(Nx,Ny).cpu().numpy()
     V = v_flat.reshape(Nx,Ny).cpu().numpy()
     x_np=X[:,0].cpu().numpy(); y_np=Y[0,:].cpu().numpy()
@@ -168,8 +176,9 @@ if __name__ == "__main__":
     X, Y, dx, dy = make_grid()
     print("=== Kernel benchmark (steady NS) ===")
     U_t = torch.rand(Nx,Ny,device=device); V_t = torch.rand(Nx,Ny,device=device)
-    ms_pt = triton.testing.do_bench(lambda: pde_residual_pytorch_steady(U_t,V_t,dx,dy))
-    print(f"PyTorch FD: {ms_pt:.3f}ms  (Triton uses time-dependent kernel, N/A for steady)")
+    P_t = torch.rand(Nx,Ny,device=device)
+    ms_pt = triton.testing.do_bench(lambda: pde_residual_pytorch_steady(U_t,V_t,P_t,dx,dy))
+    print(f"PyTorch FD: {ms_pt:.3f}ms")
 
     for b in backends:
         print(f"\n{'='*50}\nTraining: {b}")

@@ -2,7 +2,7 @@
 import sys, os; sys.path.insert(0, __import__('pathlib').Path(__file__).parent.parent.parent.__str__())
 import torch
 from cases.tgv_3d.common import *
-from kernels.stencil_3d import ns3d_residual_triton
+from kernels.stencil_3d_ns_unsteady import ns3d_residual_triton
 
 def loss_fn(model, xyzt, X, Y, Z, T, U_exact, V_exact, W_exact, P_exact, dx, dy, dz, dt):
     U, V, W, P = infer(model, xyzt, X, Y, Z, T)

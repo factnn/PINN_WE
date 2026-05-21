@@ -7,8 +7,8 @@ triton_cache = os.path.expanduser('~/.triton/cache')
 if os.path.exists(triton_cache):
     shutil.rmtree(triton_cache)
 
-from cases.burgers_1d.common import *
-from kernels.stencil_1d import burgers_2d_loss_triton_autograd
+from cases.burgers_1d_unsteady.common import *
+from kernels.stencil_1d_unsteady import burgers_2d_loss_triton_autograd
 
 nu_val = 0.01 / np.pi
 

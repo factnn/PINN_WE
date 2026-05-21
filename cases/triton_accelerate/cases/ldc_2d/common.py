@@ -112,7 +112,7 @@ def unified_loss_fn(model, xy, X, Y, dx, dy):
 
 
 def unified_loss_fn_triton(model, xy, X, Y, dx, dy):
-    from kernels.stencil_2d_steady import ldc_residual_triton
+    from kernels.stencil_2d_burgers_steady import ldc_residual_triton
     U, V, P = infer(model, xy, X, Y)
     return ldc_residual_triton(U, V, P, dx, dy, nu) + 10 * bc_loss(U, V)
 

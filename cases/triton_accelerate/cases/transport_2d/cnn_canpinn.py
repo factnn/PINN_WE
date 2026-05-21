@@ -1,6 +1,6 @@
 """AdvDiff 2D - Phy-CNN (PyTorch FD)."""
 import sys, os; sys.path.insert(0, __import__('pathlib').Path(__file__).parent.parent.parent.__str__())
-from cases.advdiff_2d.common import *
+from cases.transport_2d.common import *
 
 if __name__ == "__main__":
     args = base_argparser("Phy-CNN CAN-PINN").parse_args()

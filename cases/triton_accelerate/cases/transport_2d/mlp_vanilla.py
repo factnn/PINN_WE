@@ -1,7 +1,7 @@
 """AdvDiff 2D - MLP Vanilla PINN (autograd)."""
 import sys, os; sys.path.insert(0, __import__('pathlib').Path(__file__).parent.parent.parent.__str__())
 import torch
-from cases.advdiff_2d.common import *
+from cases.transport_2d.common import *
 
 def loss_fn(model, xyt, X, Y, T, C_exact, dx, dy, dt):
     xyt_g = xyt.detach().requires_grad_(True)

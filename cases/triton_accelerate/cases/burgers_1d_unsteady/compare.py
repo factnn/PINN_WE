@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from kernels.stencil_1d import burgers_2d_backward_triton
+from kernels.stencil_1d_unsteady import burgers_2d_backward_triton
 
 nu = 0.01 / np.pi
 Nx, Nt = 1024, 100

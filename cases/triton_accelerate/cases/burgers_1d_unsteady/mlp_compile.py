@@ -1,7 +1,7 @@
 """1D Burgers - CAN-PINN + torch.compile."""
 import sys; sys.path.insert(0, __import__('pathlib').Path(__file__).parent.parent.parent.__str__())
-from cases.burgers_1d.common import *
-from cases.burgers_1d.compare import loss_canpinn
+from cases.burgers_1d_unsteady.common import *
+from cases.burgers_1d_unsteady.compare import loss_canpinn
 
 def loss_fn(model, U, X, T, dx, dt):
     return loss_canpinn(model, X, T, dx, dt) + 10*ic_loss_from_U(U,X) + 10*bc_loss_from_U(U)

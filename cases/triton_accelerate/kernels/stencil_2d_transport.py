@@ -212,7 +212,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent.parent))
     os.environ.setdefault('TRITON_CACHE_DIR', '/tmp/triton_advdiff_test')
 
-    from cases.advdiff_2d.common import pde_residual_pytorch, make_grid, exact_c, MLP
+    from cases.transport_2d.common import pde_residual_pytorch, make_grid, exact_c, MLP
 
     Nt, Nx, Ny = 20, 64, 64
     nu_val = 0.01; u0_val = 1.0; v0_val = 1.0

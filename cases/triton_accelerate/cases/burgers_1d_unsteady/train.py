@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from cases.burgers_1d.compare import MLP, loss_vanilla, loss_canpinn, loss_triton, make_grid
+from cases.burgers_1d_unsteady.compare import MLP, loss_vanilla, loss_canpinn, loss_triton, make_grid
 
 nu = 0.01 / np.pi
 device = "cuda"

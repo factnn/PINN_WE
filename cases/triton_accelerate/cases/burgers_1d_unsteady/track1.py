@@ -12,9 +12,9 @@ import torch
 import numpy as np
 import triton
 import argparse
-from cases.burgers_1d.common import MLP, make_grid, ic_loss_from_U, bc_loss_from_U
-from cases.burgers_1d.compare import loss_vanilla, loss_canpinn
-from kernels.stencil_1d import burgers_2d_loss_triton_autograd
+from cases.burgers_1d_unsteady.common import MLP, make_grid, ic_loss_from_U, bc_loss_from_U
+from cases.burgers_1d_unsteady.compare import loss_vanilla, loss_canpinn
+from kernels.stencil_1d_unsteady import burgers_2d_loss_triton_autograd
 
 A100_BW_GBS = 1555.0
 BYTES_PER_STEP = 1024 * 100 * 4 * 6  # Nt*Nx*float32*accesses

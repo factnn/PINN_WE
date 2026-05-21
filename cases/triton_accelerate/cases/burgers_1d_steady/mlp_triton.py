@@ -2,7 +2,7 @@
 import sys, os; sys.path.insert(0, __import__('pathlib').Path(__file__).parent.parent.parent.__str__())
 import torch
 from cases.burgers_1d_steady.common import *
-from kernels.stencil_burgers_steady import burgers_steady_loss_triton
+from kernels.stencil_1d_steady import burgers_steady_loss_triton
 
 def loss_fn(model, x_inp, X, dx):
     U = infer(model, x_inp, X)

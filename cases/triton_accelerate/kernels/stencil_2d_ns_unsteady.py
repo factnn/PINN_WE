@@ -291,9 +291,9 @@ if __name__ == "__main__":
     import sys, numpy as np, os, importlib.util
     # Force load stencil_2d as a proper module (not __main__) to avoid Triton JIT cache issues
     os.environ.setdefault('TRITON_CACHE_DIR', '/tmp/triton_stencil2d_test')
-    spec = importlib.util.spec_from_file_location('kernels.stencil_2d', __file__)
+    spec = importlib.util.spec_from_file_location('kernels.stencil_2d_ns_unsteady', __file__)
     _self = importlib.util.module_from_spec(spec)
-    sys.modules['kernels.stencil_2d'] = _self
+    sys.modules['kernels.stencil_2d_ns_unsteady'] = _self
     spec.loader.exec_module(_self)
     sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent.parent))
     from cases.tgv_2d.common import pde_residual_pytorch

@@ -1,11 +1,9 @@
-"""Euler 2D (Sod) - Phy-CNN + Triton fused kernel."""
+"""AdvDiff 2D - MLP CAN-PINN (PyTorch FD)."""
 import sys, os; sys.path.insert(0, __import__('pathlib').Path(__file__).parent.parent.parent.__str__())
-from cases.euler_2d.common import *
-
-# TODO: implement Euler Triton kernel (stencil_euler.py)
+from cases.transport_2d.common import *
 
 if __name__ == "__main__":
-    args = base_argparser("Phy-CNN + Triton").parse_args()
+    args = base_argparser("MLP CAN-PINN").parse_args()
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
-    train_and_save("cnn_triton", PhyCNN, runs=args.runs,
+    train_and_save("mlp_canpinn", MLP, runs=args.runs,
                    max_epochs=args.max_epochs, lr=args.lr, loss_threshold=args.threshold)

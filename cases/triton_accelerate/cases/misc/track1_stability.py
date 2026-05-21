@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import torch
-from cases.burgers_1d.compare import MLP, loss_canpinn, loss_triton, make_grid
+from cases.burgers_1d_unsteady.compare import MLP, loss_canpinn, loss_triton, make_grid
 
 device = "cuda"
 WARMUP = 50
