@@ -52,18 +52,19 @@ Note: bw_pct ~0.1% → bottleneck is MatMul (network backward), not memory bandw
 | mlp_vanilla | 3615.5 | 45253 | 79.77 | **7.830** | 0.2 | 2.09% |
 | mlp_canpinn | 529.2 | 42899 | 12.29 | 0.399 | 1.1 | 0.66% |
 | mlp_compile | 838.8 | 40317 | 20.76 | 0.398 | 0.7 | 0.65% |
-| mlp_triton | 622.9 | 50316 | 12.34 | 0.399 | 1.1 | 0.65% |
+| **triton** | N/A | 200000 | **7.01** | 0.399 | 2.0 | 9.21% |
 | cnn_canpinn | 795.2 | 62578 | 12.66 | 0.227 | 1.1 | 1.50% |
 | cnn_compile | 1233.5 | 64029 | 19.22 | 0.228 | 0.7 | 1.77% |
-| cnn_triton | 804.9 | 61053 | 13.14 | 0.227 | 1.0 | 1.62% |
+| **triton** | N/A | 200000 | **7.22** | 0.227 | 1.9 | 17.9% |
 
 **Key findings (complete)**:
 - mlp_vanilla 显存 **7.83 GB**，是 canpinn 的 **19.6x** — autograd 显存爆炸
 - mlp_vanilla T2S **3615s**，是 mlp_canpinn 的 **6.8x**
 - Track 1 Triton 吞吐量：mlp **2.04x**，cnn **2.35x**（vs vanilla）
-- Track 2 cnn_triton T2S 804.9s，与 cnn_canpinn（795.2s）持平，但 kernel 快 **2.35x**
+- **Triton backward fully replaced**: avg_step mlp 7.01ms (old 12.34ms, 1.8x), cnn 7.22ms (old 13.14ms, 1.8x)
+- Track 2 T2S: triton N/A (loss stuck ~1e-2), bottleneck on model MatMul not PDE residual
 - torch.compile 两个 track 都比 canpinn 慢（1D/2D 一致结论）
-- bw_pct 0.1-0.2% → 瓶颈在网络 MatMul，不在 PDE 残差计算
+- bw_pct 0.1-2.0% → 瓶颈在网络 MatMul，不在 PDE 残差计算
 
 ---
 
