@@ -1,7 +1,6 @@
 """Shared utilities for 1D steady Burgers experiments.
-u * u_x = nu * u_xx on [0, 1], Dirichlet BC u(0)=1, u(1)=-1.
-Non-trivial solution: steep transition (shock-like) near x=0.5.
-Approximate exact solution via tanh profile (valid for small nu).
+u * u_x = nu * u_xx on [-1, 1], Dirichlet BC u(-1)=1, u(1)=-1.
+Stationary shock at x=0. Exact solution: u(x) = -tanh(x / (2*nu)).
 """
 import sys, time, argparse
 from pathlib import Path
@@ -60,17 +59,16 @@ class PhyCNN(nn.Module):
 # 2. Grid & exact solution
 # ==========================================
 def make_grid():
-    x = torch.linspace(0, 1, Nx, device=device)
+    x = torch.linspace(-1, 1, Nx, device=device)
     dx = float(x[1] - x[0])
     return x, dx
 
 
 def exact_u(x):
-    """Approximate exact solution: tanh shock profile.
-    For small nu, u(x) ≈ -tanh((x - 0.5) / (2*nu)).
-    Satisfies u(0) ≈ 1, u(1) ≈ -1 and u*u_x ≈ nu*u_xx.
+    """Exact solution: u(x) = -tanh(x / (2*nu)).
+    Satisfies u*u_x = nu*u_xx exactly, with u(-1)≈1, u(1)≈-1.
     """
-    return -torch.tanh((x - 0.5) / (2.0 * nu))
+    return -torch.tanh(x / (2.0 * nu))
 
 
 # ==========================================
@@ -88,7 +86,7 @@ def pde_residual_pytorch(U, dx):
 
 
 def bc_loss(U):
-    """Anti-symmetric Dirichlet BC: u(0) = 1, u(1) = -1."""
+    """Dirichlet BC: u(-1) = 1, u(1) = -1."""
     return (U[0] - 1.0)**2 + (U[-1] + 1.0)**2
 
 
@@ -172,7 +170,9 @@ def train_and_save(backend_name, model_fn, loss_fn=None,
     with torch.no_grad():
         U_pred = infer(model, x_inp, X).cpu().numpy()
     x_np = X.cpu().numpy()
-    _plot(U_pred, x_np, backend_name)
+    U_exact = exact_u(X).cpu().numpy()
+    l2 = np.linalg.norm(U_pred - U_exact) / (np.linalg.norm(U_exact) + 1e-12)
+    _plot(U_pred, U_exact, x_np, backend_name, l2)
 
     print(f"\n[{backend_name}] === Summary ===")
     print(f"  T2S          : {t2s:.1f}s" if t2s else "  T2S          : N/A")
@@ -180,16 +180,18 @@ def train_and_save(backend_name, model_fn, loss_fn=None,
     print(f"  Avg_Step_ms  : {avg_step_ms:.2f}")
     print(f"  Peak_Mem_GB  : {mem:.3f}")
     print(f"  Mem_BW_GBs   : {mem_bw_gbs:.1f}")
+    print(f"  L2_err       : {l2:.4e}")
     return dict(elapsed=np.median(all_elapsed), mem_gb=mem, t2s=t2s,
                 t2s_ep=t2s_ep, avg_step_ms=avg_step_ms,
-                mem_bw_gbs=mem_bw_gbs, history=history)
+                mem_bw_gbs=mem_bw_gbs, l2=l2, history=history)
 
 
-def _plot(U, x, name):
+def _plot(U, U_exact, x, name, l2):
     fig, ax = plt.subplots(1, 1, figsize=(8, 4))
     ax.plot(x, U, 'b-', lw=2, label='PINN')
+    ax.plot(x, U_exact, 'r--', lw=2, label='Exact')
     ax.set_xlabel('x'); ax.set_ylabel('u')
-    ax.set_title(f'Steady Burgers ({name})')
+    ax.set_title(f'Steady Burgers ({name}) | L2={l2:.2e}')
     ax.legend(); ax.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(OUT / f"solution_{name}.png", dpi=150)
