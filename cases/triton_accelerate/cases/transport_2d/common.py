@@ -63,11 +63,13 @@ class PhyCNN(nn.Module):
 # 2. Grid & exact solution
 # ==========================================
 def make_grid():
-    x = torch.linspace(0, 2*np.pi, Nx, device=device)
-    y = torch.linspace(0, 2*np.pi, Ny, device=device)
+    dx = 2.0 * np.pi / Nx
+    dy = 2.0 * np.pi / Ny
+    x = torch.arange(Nx, device=device) * dx
+    y = torch.arange(Ny, device=device) * dy
     t = torch.linspace(0, 1, Nt, device=device)
     T, X, Y = torch.meshgrid(t, x, y, indexing='ij')
-    dx = float(x[1] - x[0]); dy = float(y[1] - y[0]); dt = float(t[1] - t[0])
+    dt = float(t[1] - t[0])
     return X, Y, T, dx, dy, dt
 
 

@@ -1,9 +1,7 @@
 """Shared utilities for 1D steady Burgers experiments.
-u * u_x = nu * u_xx on [0, 1], Dirichlet BC.
-Exact solution (Cole-Hopf): u(x) = -2*nu * phi'(x) / phi(x)
-where phi(x) = exp(-x²/(4*nu)) (simplified for demonstration).
-We use a manufactured exact solution: u(x) = sin(2*pi*x) * (1-x) * x
-with source term s(x) = u*u_x - nu*u_xx computed analytically.
+u * u_x = nu * u_xx on [0, 1], Dirichlet BC u(0)=1, u(1)=-1.
+Non-trivial solution: steep transition (shock-like) near x=0.5.
+Approximate exact solution via tanh profile (valid for small nu).
 """
 import sys, time, argparse
 from pathlib import Path
@@ -68,21 +66,19 @@ def make_grid():
 
 
 def exact_u(x):
-    """Manufactured solution: u = sin(2*pi*x) * x * (1-x)
-    Satisfies u(0) = u(1) = 0 (Dirichlet BC).
+    """Approximate exact solution: tanh shock profile.
+    For small nu, u(x) ≈ -tanh((x - 0.5) / (2*nu)).
+    Satisfies u(0) ≈ 1, u(1) ≈ -1 and u*u_x ≈ nu*u_xx.
     """
-    return torch.sin(2 * np.pi * x) * x * (1 - x)
+    return -torch.tanh((x - 0.5) / (2.0 * nu))
 
 
 # ==========================================
 # 3. PDE residual & losses
 # ==========================================
 def pde_residual_pytorch(U, dx):
-    """Steady Burgers: u*u_x - nu*u_xx = source(x) via central differences.
+    """Steady Burgers: u*u_x = nu*u_xx via central differences.
     U: [Nx]. Only interior points contribute.
-    Since we use a manufactured solution, residual = u*u_x - nu*u_xx - source.
-    For simplicity, we just minimize u*u_x - nu*u_xx (no source), which means
-    the network learns the true steady solution of the homogeneous equation.
     """
     u_x = (U[2:] - U[:-2]) / (2*dx)
     u_xx = (U[2:] - 2*U[1:-1] + U[:-2]) / dx**2
@@ -92,8 +88,8 @@ def pde_residual_pytorch(U, dx):
 
 
 def bc_loss(U):
-    """Dirichlet BC: u(0) = 0, u(1) = 0."""
-    return U[0]**2 + U[-1]**2
+    """Anti-symmetric Dirichlet BC: u(0) = 1, u(1) = -1."""
+    return (U[0] - 1.0)**2 + (U[-1] + 1.0)**2
 
 
 def unified_loss_fn(model, x_inp, X, dx):

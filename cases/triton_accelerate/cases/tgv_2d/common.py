@@ -66,11 +66,13 @@ class PhyCNN(nn.Module):
 # 2. 物理环境与解析解
 # ==========================================
 def make_grid():
-    x = torch.linspace(0, 2*np.pi, Nx, device=device)
-    y = torch.linspace(0, 2*np.pi, Ny, device=device)
+    dx = 2.0 * np.pi / Nx
+    dy = 2.0 * np.pi / Ny
+    x = torch.arange(Nx, device=device) * dx
+    y = torch.arange(Ny, device=device) * dy
     t = torch.linspace(0, 1, Nt, device=device)
     T, X, Y = torch.meshgrid(t, x, y, indexing='ij')
-    dx = float(x[1] - x[0]); dy = float(y[1] - y[0]); dt = float(t[1] - t[0])
+    dt = float(t[1] - t[0])
     return X, Y, T, dx, dy, dt
 
 
@@ -78,7 +80,7 @@ def exact_uvp(X, Y, T):
     """2D TGV 的精确解析解 (包含压力 P)"""
     U = torch.sin(X) * torch.cos(Y) * torch.exp(-2*nu*T)
     V = -torch.cos(X) * torch.sin(Y) * torch.exp(-2*nu*T)
-    P = -0.25 * (torch.cos(2*X) + torch.cos(2*Y)) * torch.exp(-4*nu*T)
+    P = 0.25 * (torch.cos(2*X) + torch.cos(2*Y)) * torch.exp(-4*nu*T)
     return U, V, P
 
 

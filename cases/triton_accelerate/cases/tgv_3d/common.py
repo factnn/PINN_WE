@@ -62,23 +62,24 @@ class PhyCNN(nn.Module):
 # 2. Grid & exact solution
 # ==========================================
 def make_grid():
-    x = torch.linspace(0, 2*np.pi, Nx, device=device)
-    y = torch.linspace(0, 2*np.pi, Ny, device=device)
-    z = torch.linspace(0, 2*np.pi, Nz, device=device)
+    dx = 2.0 * np.pi / Nx
+    dy = 2.0 * np.pi / Ny
+    dz = 2.0 * np.pi / Nz
+    x = torch.arange(Nx, device=device) * dx
+    y = torch.arange(Ny, device=device) * dy
+    z = torch.arange(Nz, device=device) * dz
     t = torch.linspace(0, 1, Nt, device=device)
     T, X, Y, Z = torch.meshgrid(t, x, y, z, indexing='ij')
-    dx = float(x[1] - x[0]); dy = float(y[1] - y[0])
-    dz = float(z[1] - z[0]); dt = float(t[1] - t[0])
+    dt = float(t[1] - t[0])
     return X, Y, Z, T, dx, dy, dz, dt
 
 
-def exact_uvwp(X, Y, Z, T):
-    """3D TGV exact solution."""
-    decay = torch.exp(-3*nu*T)
-    U =  torch.sin(X) * torch.cos(Y) * torch.cos(Z) * decay
-    V = -torch.cos(X) * torch.sin(Y) * torch.cos(Z) * decay
+def tgv3d_ic(X, Y, Z):
+    """3D TGV initial condition at t=0 (exact for Stokes)."""
+    U = torch.sin(X) * torch.cos(Y) * torch.cos(Z)
+    V = -torch.cos(X) * torch.sin(Y) * torch.cos(Z)
     W = torch.zeros_like(U)
-    P = (1.0/16.0) * (torch.cos(2*X) + torch.cos(2*Y)) * (torch.cos(2*Z) + 2) * decay**2
+    P = (1.0/16.0) * (torch.cos(2*X) + torch.cos(2*Y)) * (torch.cos(2*Z) + 2)
     return U, V, W, P
 
 
@@ -129,11 +130,11 @@ def pde_residual_pytorch(U, V, W, P, dx, dy, dz, dt):
     return (res_u**2 + res_v**2 + res_w**2 + res_div**2).mean()
 
 
-def ic_bc_loss(U, V, W, P, U_exact, V_exact, W_exact, P_exact):
-    """IC at t=0 + periodic BC in x,y,z."""
-    # IC
-    ic = ((U[0]-U_exact[0])**2).mean() + ((V[0]-V_exact[0])**2).mean() + \
-         ((W[0]-W_exact[0])**2).mean() + ((P[0]-P_exact[0])**2).mean()
+def ic_bc_loss(U, V, W, P, U_ic, V_ic, W_ic, P_ic):
+    """IC at t=0 + periodic BC in x,y,z. No exact solution for t>0."""
+    # IC: only t=0 slice
+    ic = ((U[0]-U_ic)**2).mean() + ((V[0]-V_ic)**2).mean() + \
+         ((W[0]-W_ic)**2).mean() + ((P[0]-P_ic)**2).mean()
     # Periodic BC: x
     bc_x = ((U[:,0]-U[:,-1])**2 + (V[:,0]-V[:,-1])**2 +
             (W[:,0]-W[:,-1])**2 + (P[:,0]-P[:,-1])**2).mean()
@@ -146,10 +147,17 @@ def ic_bc_loss(U, V, W, P, U_exact, V_exact, W_exact, P_exact):
     return ic + bc_x + bc_y + bc_z
 
 
-def unified_loss_fn(model, xyzt, X, Y, Z, T, U_exact, V_exact, W_exact, P_exact, dx, dy, dz, dt):
+def kinetic_energy(U, V, W):
+    """Compute volume-averaged kinetic energy Ek(t) = 0.5 * mean(u^2+v^2+w^2) per timestep.
+    Returns: [Nt] tensor.
+    """
+    return 0.5 * (U**2 + V**2 + W**2).mean(dim=(1, 2, 3))
+
+
+def unified_loss_fn(model, xyzt, X, Y, Z, T, U_ic, V_ic, W_ic, P_ic, dx, dy, dz, dt):
     U, V, W, P = infer(model, xyzt, X, Y, Z, T)
     return pde_residual_pytorch(U, V, W, P, dx, dy, dz, dt) + \
-           ic_bc_loss(U, V, W, P, U_exact, V_exact, W_exact, P_exact)
+           ic_bc_loss(U, V, W, P, U_ic, V_ic, W_ic, P_ic)
 
 
 # ==========================================
@@ -161,7 +169,7 @@ def train_and_save(backend_name, model_fn, loss_fn=None,
         loss_fn = unified_loss_fn
 
     X, Y, Z, T, dx, dy, dz, dt = make_grid()
-    U_exact, V_exact, W_exact, P_exact = exact_uvwp(X, Y, Z, T)
+    U_ic, V_ic, W_ic, P_ic = tgv3d_ic(X[0], Y[0], Z[0])
     xyzt = torch.stack([X.flatten(), Y.flatten(), Z.flatten(), T.flatten()], dim=1)
 
     all_elapsed = []; all_t2s = []
@@ -180,7 +188,7 @@ def train_and_save(backend_name, model_fn, loss_fn=None,
             t_step = time.time()
             opt.zero_grad()
             loss = loss_fn(model, xyzt, X, Y, Z, T,
-                           U_exact, V_exact, W_exact, P_exact, dx, dy, dz, dt)
+                           U_ic, V_ic, W_ic, P_ic, dx, dy, dz, dt)
             loss.backward(); opt.step(); sch.step()
             torch.cuda.synchronize()
             step_times.append(time.time() - t_step)
@@ -214,14 +222,15 @@ def train_and_save(backend_name, model_fn, loss_fn=None,
     )
     np.save(OUT / f"meta_{backend_name}.npy", metrics)
 
-    # L2 error
+    # Kinetic energy evaluation (no exact solution for t>0)
     with torch.no_grad():
         U_pred, V_pred, W_pred, _ = infer(model, xyzt, X, Y, Z, T)
-    Ue = U_exact.cpu().numpy(); Ve = V_exact.cpu().numpy(); We = W_exact.cpu().numpy()
-    Up = U_pred.cpu().numpy(); Vp = V_pred.cpu().numpy(); Wp = W_pred.cpu().numpy()
-    l2 = np.sqrt(np.sum((Up-Ue)**2 + (Vp-Ve)**2 + (Wp-We)**2)) / \
-         (np.sqrt(np.sum(Ue**2 + Ve**2 + We**2)) + 1e-12)
-    _plot(Up, Vp, Ue, Ve, X, Y, backend_name, l2)
+    Ek = kinetic_energy(U_pred, V_pred, W_pred).cpu().numpy()
+    t_np = T[:, 0, 0, 0].cpu().numpy()
+    Up = U_pred.cpu().numpy(); Vp = V_pred.cpu().numpy()
+    # Ek decay rate: -dEk/dt
+    dEk_dt = -np.gradient(Ek, t_np)
+    _plot(Up, Vp, X, Y, backend_name, Ek, t_np, dEk_dt)
 
     print(f"\n[{backend_name}] === Summary ===")
     print(f"  T2S          : {t2s:.1f}s" if t2s else "  T2S          : N/A")
@@ -229,10 +238,11 @@ def train_and_save(backend_name, model_fn, loss_fn=None,
     print(f"  Avg_Step_ms  : {avg_step_ms:.2f}")
     print(f"  Peak_Mem_GB  : {mem:.3f}")
     print(f"  Mem_BW_GBs   : {mem_bw_gbs:.1f}")
-    print(f"  L2_err       : {l2:.4e}")
+    print(f"  Ek(t=0)      : {Ek[0]:.4e}")
+    print(f"  Ek(t=T)      : {Ek[-1]:.4e}")
     return dict(elapsed=np.median(all_elapsed), mem_gb=mem, t2s=t2s,
                 t2s_ep=t2s_ep, avg_step_ms=avg_step_ms,
-                mem_bw_gbs=mem_bw_gbs, l2=l2, history=history)
+                mem_bw_gbs=mem_bw_gbs, Ek=Ek, history=history)
 
 
 def infer(model, xyzt, X, Y, Z, T):
@@ -259,24 +269,36 @@ def base_argparser(description):
     return p
 
 
-def _plot(U, V, Ue, Ve, X, Y, name, l2):
-    """Plot a z-midplane slice at middle time step."""
+def _plot(U, V, X, Y, name, Ek, t_np, dEk_dt):
+    """Plot z-midplane slice + Ek(t) decay curve."""
     x_np = X[0, :, 0, 0].cpu().numpy()
     y_np = Y[0, 0, :, 0].cpu().numpy()
     ti = Nt // 2; zi = Nz // 2
 
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-    for row, (f, fe, label) in enumerate([(U, Ue, 'u'), (V, Ve, 'v')]):
-        sl = f[ti, :, :, zi]; sl_e = fe[ti, :, :, zi]
-        im = axes[row, 0].contourf(x_np, y_np, sl.T, levels=20, cmap='RdBu_r')
-        plt.colorbar(im, ax=axes[row, 0]); axes[row, 0].set_title(f'PINN {label}')
-        im2 = axes[row, 1].contourf(x_np, y_np, sl_e.T, levels=20, cmap='RdBu_r')
-        plt.colorbar(im2, ax=axes[row, 1]); axes[row, 1].set_title(f'Exact {label}')
-        err = np.abs(sl - sl_e)
-        im3 = axes[row, 2].contourf(x_np, y_np, err.T, levels=20, cmap='hot_r')
-        plt.colorbar(im3, ax=axes[row, 2]); axes[row, 2].set_title(f'|Error|')
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    # velocity slice
+    sl_u = U[ti, :, :, zi]
+    im = axes[0].contourf(x_np, y_np, sl_u.T, levels=20, cmap='RdBu_r')
+    plt.colorbar(im, ax=axes[0]); axes[0].set_title(f'u (t={ti}, z-mid)')
+    sl_v = V[ti, :, :, zi]
+    im2 = axes[1].contourf(x_np, y_np, sl_v.T, levels=20, cmap='RdBu_r')
+    plt.colorbar(im2, ax=axes[1]); axes[1].set_title(f'v (t={ti}, z-mid)')
+    # Ek decay
+    axes[2].plot(t_np, Ek, 'b-', lw=2, label='Ek(t)')
+    axes[2].set_xlabel('t'); axes[2].set_ylabel('Ek')
+    axes[2].set_title('Kinetic Energy Decay'); axes[2].legend(); axes[2].grid(True, alpha=0.3)
 
-    plt.suptitle(f'TGV 3D ({name}) | t={ti}/{Nt} z={zi}/{Nz} | L2={l2:.2e}', fontsize=16)
+    plt.suptitle(f'TGV 3D ({name})', fontsize=16)
     plt.tight_layout()
     plt.savefig(OUT / f"solution_{name}.png", dpi=150)
+    plt.close()
+
+    # Separate dissipation rate plot
+    fig2, ax2 = plt.subplots(figsize=(8, 5))
+    ax2.plot(t_np, dEk_dt, 'r-', lw=2, label='-dEk/dt (PINN)')
+    ax2.set_xlabel('t'); ax2.set_ylabel('-dEk/dt')
+    ax2.set_title(f'Kinetic Energy Dissipation Rate ({name})')
+    ax2.legend(); ax2.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(OUT / f"dissipation_{name}.png", dpi=150)
     plt.close()
