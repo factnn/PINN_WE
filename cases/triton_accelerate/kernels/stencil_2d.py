@@ -252,23 +252,23 @@ def _add_boundary_gradients(U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p, dx, dy, 
     # For res_u: u_c is U[1:-1,1,1:-1]; for res_v: u_c*v_x uses u_c from res_v which is U[1:-1,1,1:-1]
     grad_u[1:-1, 0, 1:-1] += -Gu[:, 0] * (U[1:-1, 1, 1:-1] * inv_2dx + nu_val * inv_dx2)
     grad_v[1:-1, 0, 1:-1] += -Gv[:, 0] * (U[1:-1, 1, 1:-1] * inv_2dx + nu_val * inv_dx2)
-    grad_u[1:-1, 0, 1:-1] += Gdiv[:, 0] * inv_2dx  # div adjoint
+    grad_u[1:-1, 0, 1:-1] += -Gdiv[:, 0] * inv_2dx  # div adjoint: -Gdiv/(2dx) for u_l
 
     # x=Nx-1: u_r in res[:,Nx-3], dRes/du_r = +u_c/(2dx) - nu/dx^2
     grad_u[1:-1, Nx-1, 1:-1] += Gu[:, Nx-3] * (U[1:-1, Nx-2, 1:-1] * inv_2dx - nu_val * inv_dx2)
     grad_v[1:-1, Nx-1, 1:-1] += Gv[:, Nx-3] * (U[1:-1, Nx-2, 1:-1] * inv_2dx - nu_val * inv_dx2)
-    grad_u[1:-1, Nx-1, 1:-1] += -Gdiv[:, Nx-3] * inv_2dx
+    grad_u[1:-1, Nx-1, 1:-1] += Gdiv[:, Nx-3] * inv_2dx
 
     # y=0: u_ym in res[:,:,0], dRes/du_ym = -v_c/(2dy) - nu/dy^2
     # Note: res_u = ... + v_c*u_y, dRes_u/du_ym = -v_c/(2dy); res_v = ... + v_c*v_y, dRes_v/dv_ym = -v_c/(2dy)
     grad_u[1:-1, 1:-1, 0] += -Gu[:, :, 0] * (V[1:-1, 1:-1, 1] * inv_2dy + nu_val * inv_dy2)
     grad_v[1:-1, 1:-1, 0] += -Gv[:, :, 0] * (V[1:-1, 1:-1, 1] * inv_2dy + nu_val * inv_dy2)
-    grad_v[1:-1, 1:-1, 0] += Gdiv[:, :, 0] * inv_2dy
+    grad_v[1:-1, 1:-1, 0] += -Gdiv[:, :, 0] * inv_2dy
 
     # y=Ny-1: u_yp in res[:,:,Ny-3], dRes/du_yp = +v_c/(2dy) - nu/dy^2
     grad_u[1:-1, 1:-1, Ny-1] += Gu[:, :, Ny-3] * (V[1:-1, 1:-1, Ny-2] * inv_2dy - nu_val * inv_dy2)
     grad_v[1:-1, 1:-1, Ny-1] += Gv[:, :, Ny-3] * (V[1:-1, 1:-1, Ny-2] * inv_2dy - nu_val * inv_dy2)
-    grad_v[1:-1, 1:-1, Ny-1] += -Gdiv[:, :, Ny-3] * inv_2dy
+    grad_v[1:-1, 1:-1, Ny-1] += Gdiv[:, :, Ny-3] * inv_2dy
 
     # P boundaries: p_x/p_y adjoint
     # P[i,0,k] is p_xm of res[i-1,0,k-1]: -Gu[:,0]/(2dx)
