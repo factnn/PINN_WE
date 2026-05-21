@@ -28,7 +28,7 @@
 
 ---
 
-## 2. 1D Unsteady Burgers (`burgers_1d_unsteady`, Nx=1024, Nt=100, MLP 4×50)
+## 2. 1D Unsteady Burgers (`burgers_1d_unsteady`, Nx=1024, Nt=100)
 
 ### Track 1: Throughput (warmup=50, measure=2950 steps, 5 runs)
 
@@ -61,7 +61,7 @@
 
 ---
 
-## 3. 2D LDC (`ldc_2d`, Nx=Ny=64, Re=100, steady-state)
+## 3. 2D LDC (`ldc_2d`, Nx=Ny=64, Re=100, steady-state, NS with P+div)
 
 ### Track 1: Throughput (warmup=50, measure=2950 steps, 5 runs)
 
@@ -79,13 +79,16 @@
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_Ghia |
 |--------|--------|-------------|------------|------------|---------|
-| mlp_vanilla | - | - | - | - | - |
-| mlp_canpinn | - | - | - | - | - |
-| mlp_compile | - | - | - | - | - |
-| mlp_triton | - | - | - | - | - |
-| cnn_canpinn | - | - | - | - | - |
-| cnn_compile | - | - | - | - | - |
-| cnn_triton | - | - | - | - | - |
+| mlp_vanilla | N/A | 10000 | 22.40 | 0.171 | - |
+| mlp_canpinn | N/A | 10000 | 7.40 | 0.026 | - |
+| mlp_compile | N/A | 10000 | 43.95 | 0.025 | - |
+| **mlp_triton** | N/A | 50000 | **4.83** | 0.026 | - |
+| cnn_canpinn | N/A | 10000 | 8.17 | 0.048 | - |
+| cnn_compile | N/A | 10000 | 45.49 | 0.048 | - |
+| cnn_triton | N/A | 10000 | 8.98 | 0.048 | - |
+
+**Note**: None reached threshold 1e-4 within max_epochs (all stuck ~loss 0.16). Model capacity or optimization bottleneck — kernel correctness verified (forward rel diff 0, grad errors < 1e-9). mlp_triton: best avg_step (4.83ms), mlp_compile slowest (43.95ms).
+All 7 scripts pass 500-step sanity with P+div (steady NS with pressure and divergence constraint).
 
 ---
 
@@ -179,7 +182,7 @@
 
 ---
 
-## 7. 3D LDC (`ldc_3d`, Nx=Ny=Nz=32, Re=100, steady-state)
+## 7. 3D LDC (`ldc_3d`, Nx=Ny=Nz=32, Re=100, steady-state, NS with P+div)
 
 ### Track 1: Throughput (warmup=50, measure=2950 steps, 5 runs)
 
@@ -197,13 +200,17 @@
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
 |--------|--------|-------------|------------|------------|--------|
-| mlp_vanilla | - | - | - | - | - |
-| mlp_canpinn | - | - | - | - | - |
-| mlp_compile | - | - | - | - | - |
-| mlp_triton | - | - | - | - | - |
-| cnn_canpinn | - | - | - | - | - |
-| cnn_compile | - | - | - | - | - |
-| cnn_triton | - | - | - | - | - |
+| mlp_vanilla | N/A | 500* | 49.82 | 2.625 | - |
+| mlp_canpinn | N/A | 500* | 13.59 | 0.078 | - |
+| mlp_compile | N/A | 500* | 22.88 | 0.145 | - |
+| **mlp_triton** | N/A | 50000 | **7.13** | **0.078** | - |
+| cnn_canpinn | N/A | 500* | 17.27 | 0.037 | - |
+| cnn_compile | N/A | 500* | 24.55 | 0.058 | - |
+| cnn_triton | N/A | 500* | **12.52** | **0.037** | - |
+
+**Note**: `*` = 500-step sanity only (not full run). mlp_vanilla OOM risk at 2.6 GB vs triton 0.078 GB (**33.6x less**). mlp_triton ran full 50k epochs (loss stuck at ~0.61).
+Triton kernel verified: forward rel diff 0, grad errors < 7e-11 (sin/cos float64), < 2e-11 (MLP float32).
+All 7 scripts pass 500-step sanity with P+div (steady NS with pressure and divergence constraint).
 
 ---
 
