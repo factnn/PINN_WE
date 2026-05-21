@@ -9,7 +9,7 @@ import triton
 import argparse
 from cases.tgv_2d.common import *
 from cases.tgv_2d.common import infer
-from kernels.stencil_2d import ns2d_residual_triton
+from kernels.stencil_2d_unsteady import ns2d_residual_triton
 
 # A100 40GB peak memory bandwidth
 A100_BW_GBS = 1555.0

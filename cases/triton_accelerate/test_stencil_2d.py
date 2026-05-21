@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Force clean Triton compilation
 os.environ.setdefault('TRITON_CACHE_DIR', '/tmp/triton_stencil2d_test')
 
-from kernels.stencil_2d import ns2d_residual_triton
+from kernels.stencil_2d_unsteady import ns2d_residual_triton
 from cases.tgv_2d.common import pde_residual_pytorch
 import torch, numpy as np
 

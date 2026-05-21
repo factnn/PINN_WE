@@ -2,7 +2,7 @@
 import sys, os; sys.path.insert(0, __import__('pathlib').Path(__file__).parent.parent.parent.__str__())
 import torch
 from cases.tgv_2d.common import *
-from kernels.stencil_2d import ns2d_residual_triton, ns2d_fwd_kernel, ns2d_bwd_kernel, _add_boundary_gradients
+from kernels.stencil_2d_unsteady import ns2d_residual_triton, ns2d_fwd_kernel, ns2d_bwd_kernel, _add_boundary_gradients
 
 class _NSTriton(torch.autograd.Function):
     """Full Triton forward+backward (no PyTorch fallback)."""
