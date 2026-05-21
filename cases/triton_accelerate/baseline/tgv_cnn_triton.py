@@ -1,28 +1,43 @@
-"""TGV 2D - Phy-CNN + Triton fused kernel (with P)."""
+"""TGV 2D - Phy-CNN + Triton fused kernel (with P, full Triton fwd+bwd)."""
 import sys, os; sys.path.insert(0, __import__('pathlib').Path(__file__).parent.parent.__str__())
 import torch
 from baseline.common_2d import *
 from baseline.common_2d import infer
-from kernels.stencil_2d import ns2d_residual_triton
+from kernels.stencil_2d import ns2d_residual_triton, ns2d_fwd_kernel, ns2d_bwd_kernel
 
 class _NSTriton(torch.autograd.Function):
+    """Full Triton forward+backward (no PyTorch fallback)."""
     @staticmethod
     def forward(ctx, U, V, P, dx, dy, dt):
-        ctx.save_for_backward(U, V, P)
+        U, V, P = U.contiguous(), V.contiguous(), P.contiguous()
+        Nt, Nx, Ny = U.shape
+        res_u = torch.empty((Nt-2, Nx-2, Ny-2), device=U.device, dtype=U.dtype)
+        res_v = torch.empty_like(res_u)
+        res_div = torch.empty_like(res_u)
+        BLOCK_X, BLOCK_Y = 16, 16
+        grid = (Nt-2, (Nx-2+BLOCK_X-1)//BLOCK_X, (Ny-2+BLOCK_Y-1)//BLOCK_Y)
+        ns2d_fwd_kernel[grid](U, V, P, res_u, res_v, res_div,
+                              Nt, Nx, Ny, dx, dy, dt, nu, BLOCK_X, BLOCK_Y)
+        ctx.save_for_backward(U, V)
+        ctx.res_u, ctx.res_v, ctx.res_div = res_u, res_v, res_div
         ctx.dx, ctx.dy, ctx.dt = dx, dy, dt
-        return ns2d_residual_triton(U.contiguous(), V.contiguous(), P.contiguous(), dx, dy, dt, nu)
+        return (res_u**2 + res_v**2 + res_div**2).mean()
 
     @staticmethod
-    def backward(ctx, grad):
-        U, V, P = ctx.saved_tensors
+    def backward(ctx, grad_out):
+        U, V = ctx.saved_tensors
+        res_u, res_v, res_div = ctx.res_u, ctx.res_v, ctx.res_div
         dx, dy, dt = ctx.dx, ctx.dy, ctx.dt
-        Ua=U.detach().requires_grad_(True)
-        Va=V.detach().requires_grad_(True)
-        Pa=P.detach().requires_grad_(True)
-        with torch.enable_grad():
-            loss = pde_residual_pytorch(Ua, Va, Pa, dx, dy, dt)
-        loss.backward(grad)
-        return Ua.grad, Va.grad, Pa.grad, None, None, None
+        Nt, Nx, Ny = U.shape
+        N_total = res_u.numel()
+        scale = (2.0 / N_total) * grad_out
+        Gu = res_u * scale; Gv = res_v * scale; Gdiv = res_div * scale
+        grad_u = torch.zeros_like(U); grad_v = torch.zeros_like(V); grad_p = torch.zeros_like(U)
+        BLOCK_X, BLOCK_Y = 16, 16
+        grid = (Nt-2, (Nx-2+BLOCK_X-1)//BLOCK_X, (Ny-2+BLOCK_Y-1)//BLOCK_Y)
+        ns2d_bwd_kernel[grid](U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p,
+                              Nt, Nx, Ny, dx, dy, dt, nu, BLOCK_X, BLOCK_Y)
+        return grad_u, grad_v, grad_p, None, None, None
 
 def loss_fn(model, xyt, X, Y, T, U_exact, V_exact, P_exact, dx, dy, dt):
     U, V, P = infer(model, xyt, X, Y, T)

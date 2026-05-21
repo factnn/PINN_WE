@@ -18,14 +18,15 @@
 | vanilla | 1082.6 | 87482 | 12.32 | 0.966 | 0.2 | 0.01% | 0.31% |
 | canpinn | **201.8** | 32917 | 6.09 | 0.230 | 0.4 | 0.03% | 0.18% |
 | compile | N/A | 200000 | 6.33 | 0.208 | 0.4 | 0.02% | 0.35% |
-| **triton** | 263.9 | 58599 | **4.47** | **0.145** | 0.6 | 0.04% | 0.20% |
+| **triton** | **76.1** | 15203 | 4.97 | **0.145** | 0.6 | 0.04% | 0.24% |
 
 **Key findings**:
-- canpinn fastest T2S (201.8s), triton 2nd (263.9s), vanilla 5.4x slower
-- compile never converged to 1e-4 in 200k epochs
-- Triton avg_step 4.47ms vs canpinn 6.09ms (**1.36x faster per step**)
+- **triton fastest T2S (76.1s)** with deeper model (depth=6, lr=2e-3 Cosine), **2.65x faster** than canpinn
+- Boundary gradient bug fixed (kernel only covered interior), CosineAnnealingLR + depth=6 optimal
+- Triton avg_step 4.97ms vs canpinn 6.09ms (**1.23x faster per step**), total time saved by fewer epochs
 - vanilla mem 0.966GB vs triton 0.145GB (**6.7x**)
 - bw_pct 0.01-0.04% → bottleneck is MatMul, consistent with 2D
+- compile never converged to 1e-4 in 200k epochs
 ---
 
 ## 2D TGV (Nx=Ny=64, Nt=20, A100 GPU)
