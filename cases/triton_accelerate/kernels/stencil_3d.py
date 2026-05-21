@@ -267,6 +267,8 @@ def ns3d_bwd_kernel(
     grad_u += (gu_zm * w_zm - gu_zp * w_zp) * idz        # u_zp/w_zp neighbors
     grad_u += (gu_tm - gu_tp) * idt                       # time neighbors
     grad_u += (gd_xm - gd_xp) * idx_val                   # div
+    # Diffusion neighbor adjoint: -nu/d² contribution from each neighbor's residual
+    grad_u -= nu * ((gu_xp + gu_xm) * idx2 + (gu_yp + gu_ym) * idy2 + (gu_zp + gu_zm) * idz2)
 
     # ── grad_V ────────────────────────────────────────────────────────────
     grad_v  = gu_c * (u_yp - u_ym) * idy                  # v_c * u_y in res_u
@@ -277,6 +279,8 @@ def ns3d_bwd_kernel(
     grad_v += (gv_zm * w_zm - gv_zp * w_zp) * idz
     grad_v += (gv_tm - gv_tp) * idt
     grad_v += (gd_ym - gd_yp) * idy
+    # Diffusion neighbor adjoint
+    grad_v -= nu * ((gv_xp + gv_xm) * idx2 + (gv_yp + gv_ym) * idy2 + (gv_zp + gv_zm) * idz2)
 
     # ── grad_W ────────────────────────────────────────────────────────────
     grad_w  = gu_c * (u_zp - u_zm) * idz                  # w_c * u_z in res_u
@@ -287,6 +291,8 @@ def ns3d_bwd_kernel(
     grad_w += (gw_zm * w_zm - gw_zp * w_zp) * idz
     grad_w += (gw_tm - gw_tp) * idt
     grad_w += (gd_zm - gd_zp) * idz
+    # Diffusion neighbor adjoint
+    grad_w -= nu * ((gw_xp + gw_xm) * idx2 + (gw_yp + gw_ym) * idy2 + (gw_zp + gw_zm) * idz2)
 
     # ── grad_P ────────────────────────────────────────────────────────────
     grad_p  = (gu_xm - gu_xp) * idx_val
