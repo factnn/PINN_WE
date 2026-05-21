@@ -101,6 +101,15 @@ def burgers_backward_triton(u: torch.Tensor, res: torch.Tensor, dx: float, nu: f
     BLOCK = 256
     grid = ((N - 2 + BLOCK - 1) // BLOCK,)
     burgers_bwd_kernel[grid](u, G, grad_u, dx, nu, N, BLOCK)
+
+    # --- Boundary gradient contributions ---
+    # u[0] participates in res[0] (u_l in u_x and u_xx)
+    inv_2dx = 1.0 / (2.0 * dx)
+    inv_dx2 = 1.0 / (dx * dx)
+    grad_u[0] += G[0] * (-u[1] * inv_2dx - nu * inv_dx2)
+    # u[N-1] participates in res[-1] (u_r in u_x and u_xx)
+    grad_u[-1] += G[-1] * (u[-2] * inv_2dx - nu * inv_dx2)
+
     return grad_u
 
 
@@ -136,6 +145,13 @@ def burgers_backward_triton(u: torch.Tensor, res: torch.Tensor, dx: float, nu: f
     BLOCK = 256
     grid = ((N - 2 + BLOCK - 1) // BLOCK,)
     burgers_bwd_kernel[grid](u, G, grad_u, dx, nu, N, BLOCK)
+
+    # --- Boundary gradient contributions ---
+    inv_2dx = 1.0 / (2.0 * dx)
+    inv_dx2 = 1.0 / (dx * dx)
+    grad_u[0] += G[0] * (-u[1] * inv_2dx - nu * inv_dx2)
+    grad_u[-1] += G[-1] * (u[-2] * inv_2dx - nu * inv_dx2)
+
     return grad_u
 
 
