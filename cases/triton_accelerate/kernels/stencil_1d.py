@@ -94,52 +94,6 @@ def burgers_bwd_kernel(
 def burgers_backward_triton(u: torch.Tensor, res: torch.Tensor, dx: float, nu: float = 0.01 / 3.14159265358979) -> torch.Tensor:
     """Compute d(Loss)/dU given U and residual = res(u). Loss = mean(res²)."""
     N = u.shape[0]
-    # upstream gradient: d(mean(res²))/d(res[i]) = 2*res[i]/N_res
-    # N_res = N - 2 (res has N-2 interior points)
-    G = 2.0 * res / (N - 2)
-    grad_u = torch.zeros(N, device=u.device, dtype=u.dtype)
-    BLOCK = 256
-    grid = ((N - 2 + BLOCK - 1) // BLOCK,)
-    burgers_bwd_kernel[grid](u, G, grad_u, dx, nu, N, BLOCK)
-
-    # --- Boundary gradient contributions ---
-    # u[0] participates in res[0] (u_l in u_x and u_xx)
-    inv_2dx = 1.0 / (2.0 * dx)
-    inv_dx2 = 1.0 / (dx * dx)
-    grad_u[0] += G[0] * (-u[1] * inv_2dx - nu * inv_dx2)
-    # u[N-1] participates in res[-1] (u_r in u_x and u_xx)
-    grad_u[-1] += G[-1] * (u[-2] * inv_2dx - nu * inv_dx2)
-
-    return grad_u
-
-
-# ── Autograd Function ──────────────────────────────────────────────────────
-class _Burgers1DTriton(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, u, dx, nu_val):
-        u_c = u.contiguous()
-        res = burgers_residual_triton(u_c, dx, nu_val)
-        ctx.save_for_backward(u_c, res)
-        ctx.dx, ctx.nu_val = dx, nu_val
-        return res.pow(2).mean()
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        u, res = ctx.saved_tensors
-        dx, nu_val = ctx.dx, ctx.nu_val
-        # Compute dLoss/dU via Triton backward kernel, then scale by grad_output
-        grad_u = burgers_backward_triton(u, res, dx, nu_val)
-        return grad_output * grad_u, None, None
-
-
-def burgers_loss_triton_autograd(u: torch.Tensor, dx: float, nu_val: float = 0.01 / 3.14159265358979) -> torch.Tensor:
-    """Triton-based loss with both forward and backward in Triton. Autograd-compatible."""
-    return _Burgers1DTriton.apply(u, dx, nu_val)
-
-
-def burgers_backward_triton(u: torch.Tensor, res: torch.Tensor, dx: float, nu: float = 0.01 / 3.14159265358979) -> torch.Tensor:
-    """Compute d(Loss)/dU given U and residual = res(u). Loss = mean(res²)."""
-    N = u.shape[0]
     G = 2.0 * res / (N - 2)
     grad_u = torch.zeros(N, device=u.device, dtype=u.dtype)
     BLOCK = 256
