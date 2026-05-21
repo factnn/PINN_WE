@@ -39,10 +39,11 @@ class MLP(nn.Module):
         self.net = nn.Sequential(*layers)
         self.out_u = nn.Linear(width, 1)
         self.out_v = nn.Linear(width, 1)
+        self.out_p = nn.Linear(width, 1)
 
     def forward(self, xy):
         h = self.net(xy)
-        return self.out_u(h).squeeze(-1), self.out_v(h).squeeze(-1)
+        return self.out_u(h).squeeze(-1), self.out_v(h).squeeze(-1), self.out_p(h).squeeze(-1)
 
 
 class PhyCNN(nn.Module):
@@ -53,13 +54,13 @@ class PhyCNN(nn.Module):
             nn.Conv2d(2, channels, kernel_size=5, padding=2), nn.Tanh(),
             nn.Conv2d(channels, channels, kernel_size=5, padding=2), nn.Tanh(),
             nn.Conv2d(channels, channels, kernel_size=5, padding=2), nn.Tanh(),
-            nn.Conv2d(channels, 2, kernel_size=5, padding=2),  # output U, V
+            nn.Conv2d(channels, 3, kernel_size=5, padding=2),  # output U, V, P
         )
 
     def forward(self, X, Y):
         inputs = torch.stack([X, Y], dim=0).unsqueeze(0)  # [1, 2, Nx, Ny]
-        out = self.enc(inputs).squeeze(0)  # [2, Nx, Ny]
-        return out[0], out[1]
+        out = self.enc(inputs).squeeze(0)  # [3, Nx, Ny]
+        return out[0], out[1], out[2]
 
 
 # ==========================================
@@ -73,8 +74,12 @@ def make_grid():
     return X, Y, dx, dy
 
 
-def pde_residual_pytorch(U, V, dx, dy):
-    """Steady NS: u*u_x + v*u_y - nu*(u_xx+u_yy) = 0, same for v."""
+def pde_residual_pytorch(U, V, P, dx, dy):
+    """Steady incompressible NS:
+    res_u = u*u_x + v*u_y + p_x - nu*(u_xx+u_yy)
+    res_v = u*v_x + v*v_y + p_y - nu*(v_xx+v_yy)
+    res_div = u_x + v_y
+    """
     u_x  = (U[2:,1:-1] - U[:-2,1:-1]) / (2*dx)
     u_y  = (U[1:-1,2:] - U[1:-1,:-2]) / (2*dy)
     u_xx = (U[2:,1:-1] - 2*U[1:-1,1:-1] + U[:-2,1:-1]) / dx**2
@@ -83,10 +88,13 @@ def pde_residual_pytorch(U, V, dx, dy):
     v_y  = (V[1:-1,2:] - V[1:-1,:-2]) / (2*dy)
     v_xx = (V[2:,1:-1] - 2*V[1:-1,1:-1] + V[:-2,1:-1]) / dx**2
     v_yy = (V[1:-1,2:] - 2*V[1:-1,1:-1] + V[1:-1,:-2]) / dy**2
+    p_x  = (P[2:,1:-1] - P[:-2,1:-1]) / (2*dx)
+    p_y  = (P[1:-1,2:] - P[1:-1,:-2]) / (2*dy)
     u_c = U[1:-1,1:-1]; v_c = V[1:-1,1:-1]
-    res_u = u_c*u_x + v_c*u_y - nu*(u_xx+u_yy)
-    res_v = u_c*v_x + v_c*v_y - nu*(v_xx+v_yy)
-    return (res_u**2 + res_v**2).mean()
+    res_u = u_c*u_x + v_c*u_y + p_x - nu*(u_xx+u_yy)
+    res_v = u_c*v_x + v_c*v_y + p_y - nu*(v_xx+v_yy)
+    res_div = u_x + v_y
+    return (res_u**2 + res_v**2 + res_div**2).mean()
 
 
 def bc_loss(U, V):
@@ -99,29 +107,30 @@ def bc_loss(U, V):
 
 
 def unified_loss_fn(model, xy, X, Y, dx, dy):
-    U, V = infer(model, xy, X, Y)
-    return pde_residual_pytorch(U, V, dx, dy) + 10 * bc_loss(U, V)
+    U, V, P = infer(model, xy, X, Y)
+    return pde_residual_pytorch(U, V, P, dx, dy) + 10 * bc_loss(U, V)
 
 
 def unified_loss_fn_triton(model, xy, X, Y, dx, dy):
     from kernels.stencil_2d_steady import ldc_residual_triton
-    U, V = infer(model, xy, X, Y)
-    return ldc_residual_triton(U, V, dx, dy, nu) + 10 * bc_loss(U, V)
+    U, V, P = infer(model, xy, X, Y)
+    return ldc_residual_triton(U, V, P, dx, dy, nu) + 10 * bc_loss(U, V)
 
 
 # ==========================================
 # 3. Inference helper
 # ==========================================
 def infer(model, xy, X, Y):
-    """Infer U, V from model regardless of type (MLP or PhyCNN)."""
+    """Infer U, V, P from model regardless of type (MLP or PhyCNN)."""
     inner = getattr(model, '_orig_mod', model)
     if isinstance(inner, PhyCNN):
-        U, V = model(X, Y)
+        U, V, P = model(X, Y)
     else:
-        u_f, v_f = model(xy)
+        u_f, v_f, p_f = model(xy)
         U = u_f.reshape(Nx, Ny)
         V = v_f.reshape(Nx, Ny)
-    return U, V
+        P = p_f.reshape(Nx, Ny)
+    return U, V, P
 
 
 # ==========================================
@@ -174,7 +183,7 @@ def train_and_save(backend_name, model_fn, loss_fn=None,
     torch.save(getattr(model, '_orig_mod', model).state_dict(), ckpt)
 
     # Memory bandwidth estimate
-    bytes_per_step = 2 * Nx * Ny * 4 * 10  # U,V x grid x float32 x stencil accesses
+    bytes_per_step = 3 * Nx * Ny * 4 * 10  # U,V,P x grid x float32 x stencil accesses
     mem_bw_gbs = bytes_per_step / (avg_step_ms * 1e-3) / 1e9
 
     metrics = dict(
@@ -188,7 +197,7 @@ def train_and_save(backend_name, model_fn, loss_fn=None,
 
     # Evaluate vs Ghia
     with torch.no_grad():
-        U_pred, V_pred = infer(model, xy, X, Y)
+        U_pred, V_pred, _ = infer(model, xy, X, Y)
     U_np = U_pred.cpu().numpy(); V_np = V_pred.cpu().numpy()
     x_np = X[:, 0].cpu().numpy(); y_np = Y[0, :].cpu().numpy()
     l2 = _ghia_l2(U_np, y_np)
