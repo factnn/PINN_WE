@@ -17,13 +17,13 @@ cd /share/project/zpy/PINN_WE/cases/triton_accelerate
 
 ```bash
 # GPU 0
-CUDA_VISIBLE_DEVICES=0 python cases/ldc_2d/mlp_vanilla.py --max-epochs 10000 --threshold 1e-3
-CUDA_VISIBLE_DEVICES=0 python cases/ldc_2d/mlp_canpinn.py --max-epochs 10000 --threshold 1e-3
-CUDA_VISIBLE_DEVICES=0 python cases/ldc_2d/mlp_compile.py --max-epochs 10000 --threshold 1e-3
+CUDA_VISIBLE_DEVICES=0 python cases/ldc_2d/mlp_vanilla.py --max-epochs 50000 --threshold 1e-4
+CUDA_VISIBLE_DEVICES=0 python cases/ldc_2d/mlp_canpinn.py --max-epochs 50000 --threshold 1e-4
+CUDA_VISIBLE_DEVICES=0 python cases/ldc_2d/mlp_compile.py --max-epochs 50000 --threshold 1e-4
 
 # GPU 1
-CUDA_VISIBLE_DEVICES=1 python cases/ldc_2d/cnn_canpinn.py --max-epochs 10000 --threshold 1e-3
-CUDA_VISIBLE_DEVICES=1 python cases/ldc_2d/cnn_compile.py --max-epochs 10000 --threshold 1e-3
+CUDA_VISIBLE_DEVICES=1 python cases/ldc_2d/cnn_canpinn.py --max-epochs 50000 --threshold 1e-4
+CUDA_VISIBLE_DEVICES=1 python cases/ldc_2d/cnn_compile.py --max-epochs 50000 --threshold 1e-4
 ```
 
 记录每个的 Summary（T2S, Avg_Step_ms, Peak_Mem_GB, L2_Ghia）。
@@ -62,12 +62,12 @@ res_v = u*v_x + v*v_y - nu*(v_xx + v_yy)
 ## Phase 3: 端到端验证
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python cases/ldc_2d/mlp_triton.py --max-epochs 10000 --threshold 1e-3
-CUDA_VISIBLE_DEVICES=1 python cases/ldc_2d/cnn_triton.py --max-epochs 10000 --threshold 1e-3
+CUDA_VISIBLE_DEVICES=0 python cases/ldc_2d/mlp_triton.py --max-epochs 50000 --threshold 1e-4
+CUDA_VISIBLE_DEVICES=1 python cases/ldc_2d/cnn_triton.py --max-epochs 50000 --threshold 1e-4
 ```
 
 **成功标准**：
-- T2S 有值（loss < 1e-3）
+- T2S 有值（loss < 1e-4）
 - L2_Ghia 与 canpinn baseline 相当（差别 < 2x）
 - Avg_Step_ms < canpinn 的 Avg_Step_ms
 

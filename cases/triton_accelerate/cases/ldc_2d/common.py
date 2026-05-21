@@ -230,8 +230,8 @@ def _plot(U, V, x_np, y_np, name, l2):
 def base_argparser(description):
     p = argparse.ArgumentParser(description=description)
     p.add_argument('--runs', type=int, default=1)
-    p.add_argument('--max-epochs', type=int, default=5000)
+    p.add_argument('--max-epochs', type=int, default=50000)
     p.add_argument('--lr', type=float, default=1e-3)
-    p.add_argument('--threshold', type=float, default=1e-3)
+    p.add_argument('--threshold', type=float, default=1e-4)
     p.add_argument('--gpu', type=int, default=0)
     return p
