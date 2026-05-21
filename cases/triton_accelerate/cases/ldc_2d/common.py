@@ -103,6 +103,12 @@ def unified_loss_fn(model, xy, X, Y, dx, dy):
     return pde_residual_pytorch(U, V, dx, dy) + 10 * bc_loss(U, V)
 
 
+def unified_loss_fn_triton(model, xy, X, Y, dx, dy):
+    from kernels.stencil_2d_steady import ldc_residual_triton
+    U, V = infer(model, xy, X, Y)
+    return ldc_residual_triton(U, V, dx, dy, nu) + 10 * bc_loss(U, V)
+
+
 # ==========================================
 # 3. Inference helper
 # ==========================================
