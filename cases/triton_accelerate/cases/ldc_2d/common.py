@@ -31,7 +31,7 @@ GHIA_U = [0.0000,-0.0372,-0.0419,-0.0477,-0.0643,-0.1015,-0.1566,-0.2109,
 # 1. Network architectures
 # ==========================================
 class MLP(nn.Module):
-    def __init__(self, width=64, depth=5):
+    def __init__(self, width=128, depth=5):
         super().__init__()
         layers = [nn.Linear(2, width), nn.Tanh()]
         for _ in range(depth - 1):

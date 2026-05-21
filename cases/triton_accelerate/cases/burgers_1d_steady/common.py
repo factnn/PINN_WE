@@ -25,7 +25,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 # ==========================================
 class MLP(nn.Module):
     """Point-wise MLP: x -> u"""
-    def __init__(self, width=64, depth=5):
+    def __init__(self, width=64, depth=4):
         super().__init__()
         layers = [nn.Linear(1, width), nn.Tanh()]
         for _ in range(depth - 1):

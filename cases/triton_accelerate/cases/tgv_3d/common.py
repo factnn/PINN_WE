@@ -20,13 +20,19 @@ OUT.mkdir(parents=True, exist_ok=True)
 # ==========================================
 # 1. Network architectures
 # ==========================================
+class Sine(nn.Module):
+    """Sin activation for SIREN networks."""
+    def forward(self, x):
+        return torch.sin(x)
+
+
 class MLP(nn.Module):
-    """Point-wise MLP: (x,y,z,t) -> (u,v,w,p)"""
-    def __init__(self, width=128, depth=6):
+    """SIREN MLP: (x,y,z,t) -> (u,v,w,p) with Sin activation."""
+    def __init__(self, width=256, depth=4):
         super().__init__()
-        layers = [nn.Linear(4, width), nn.Tanh()]
+        layers = [nn.Linear(4, width), Sine()]
         for _ in range(depth - 1):
-            layers += [nn.Linear(width, width), nn.Tanh()]
+            layers += [nn.Linear(width, width), Sine()]
         self.net = nn.Sequential(*layers)
         self.out_u = nn.Linear(width, 1)
         self.out_v = nn.Linear(width, 1)
