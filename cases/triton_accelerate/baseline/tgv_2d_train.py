@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from kernels.stencil_2d import ns2d_residual_triton, ns2d_fwd_kernel, ns2d_bwd_kernel
+from kernels.stencil_2d import ns2d_residual_triton, ns2d_fwd_kernel, ns2d_bwd_kernel, _add_boundary_gradients
 
 nu = 0.01
 Nx, Ny, Nt = 64, 64, 20
@@ -121,6 +121,7 @@ class _NSTriton(torch.autograd.Function):
             U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p,
             Nt, Nx, Ny, dx, dy, dt, nu, BLOCK_X, BLOCK_Y
         )
+        _add_boundary_gradients(U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p, dx, dy, dt, nu)
         return grad_u, grad_v, None, None, None
 
 

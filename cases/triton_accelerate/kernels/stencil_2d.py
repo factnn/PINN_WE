@@ -213,7 +213,7 @@ class _NS2DTriton(torch.autograd.Function):
     def backward(ctx, grad_out):
         U, V = ctx.saved_tensors
         res_u, res_v, res_div = ctx.res_u, ctx.res_v, ctx.res_div
-        dx, dy, dt, nu = ctx.dx, ctx.dy, ctx.dt, ctx.nu
+        dx, dy, dt, nu_val = ctx.dx, ctx.dy, ctx.dt, ctx.nu
         Nt, Nx, Ny = U.shape
         N_total = res_u.numel()
         scale = (2.0 / N_total) * grad_out
@@ -222,14 +222,58 @@ class _NS2DTriton(torch.autograd.Function):
         Gdiv = res_div * scale
         grad_u = torch.zeros_like(U)
         grad_v = torch.zeros_like(V)
-        grad_p = torch.zeros_like(U)  # P has same shape as U
+        grad_p = torch.zeros_like(U)
         BLOCK_X, BLOCK_Y = 16, 16
         grid = (Nt-2, (Nx-2+BLOCK_X-1)//BLOCK_X, (Ny-2+BLOCK_Y-1)//BLOCK_Y)
         ns2d_bwd_kernel[grid](
             U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p,
-            Nt, Nx, Ny, dx, dy, dt, nu, BLOCK_X, BLOCK_Y
+            Nt, Nx, Ny, dx, dy, dt, nu_val, BLOCK_X, BLOCK_Y
         )
+        _add_boundary_gradients(U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p, dx, dy, dt, nu_val)
+
         return grad_u, grad_v, grad_p, None, None, None, None
+
+
+def _add_boundary_gradients(U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p, dx, dy, dt, nu_val):
+    """Add gradient contributions for boundary points not covered by ns2d_bwd_kernel."""
+    Nt, Nx, Ny = U.shape
+    inv_2dx = 1.0/(2.0*dx); inv_2dy = 1.0/(2.0*dy); inv_2dt = 1.0/(2.0*dt)
+    inv_dx2 = 1.0/(dx*dx); inv_dy2 = 1.0/(dy*dy)
+
+    # t=0: u_tm in res[0], dRes/du_tm = -1/(2dt)
+    grad_u[0, 1:-1, 1:-1] += -Gu[0] * inv_2dt
+    grad_v[0, 1:-1, 1:-1] += -Gv[0] * inv_2dt
+
+    # t=Nt-1: u_tp in res[Nt-3], dRes/du_tp = +1/(2dt)
+    grad_u[Nt-1, 1:-1, 1:-1] += Gu[Nt-3] * inv_2dt
+    grad_v[Nt-1, 1:-1, 1:-1] += Gv[Nt-3] * inv_2dt
+
+    # x=0: u_l in res[:,0], dRes/du_l = -u_c/(2dx) - nu/dx^2
+    grad_u[1:-1, 0, 1:-1] += -Gu[:, 0] * (U[1:-1, 1, 1:-1] * inv_2dx + nu_val * inv_dx2)
+    grad_v[1:-1, 0, 1:-1] += -Gv[:, 0] * (V[1:-1, 1, 1:-1] * inv_2dx + nu_val * inv_dx2)
+    grad_u[1:-1, 0, 1:-1] += Gdiv[:, 0] * inv_2dx  # div adjoint
+
+    # x=Nx-1: u_r in res[:,Nx-3], dRes/du_r = +u_c/(2dx) - nu/dx^2
+    grad_u[1:-1, Nx-1, 1:-1] += Gu[:, Nx-3] * (U[1:-1, Nx-2, 1:-1] * inv_2dx - nu_val * inv_dx2)
+    grad_v[1:-1, Nx-1, 1:-1] += Gv[:, Nx-3] * (V[1:-1, Nx-2, 1:-1] * inv_2dx - nu_val * inv_dx2)
+    grad_u[1:-1, Nx-1, 1:-1] += -Gdiv[:, Nx-3] * inv_2dx
+
+    # y=0: u_ym in res[:,:,0], dRes/du_ym = -v_c/(2dy) - nu/dy^2
+    # Note: res_u = ... + v_c*u_y, dRes_u/du_ym = -v_c/(2dy); res_v = ... + v_c*v_y, dRes_v/dv_ym = -v_c/(2dy)
+    grad_u[1:-1, 1:-1, 0] += -Gu[:, :, 0] * (V[1:-1, 1:-1, 1] * inv_2dy + nu_val * inv_dy2)
+    grad_v[1:-1, 1:-1, 0] += -Gv[:, :, 0] * (V[1:-1, 1:-1, 1] * inv_2dy + nu_val * inv_dy2)
+    grad_v[1:-1, 1:-1, 0] += Gdiv[:, :, 0] * inv_2dy
+
+    # y=Ny-1: u_yp in res[:,:,Ny-3], dRes/du_yp = +v_c/(2dy) - nu/dy^2
+    grad_u[1:-1, 1:-1, Ny-1] += Gu[:, :, Ny-3] * (-V[1:-1, 1:-1, Ny-2] * inv_2dy + nu_val * inv_dy2)
+    grad_v[1:-1, 1:-1, Ny-1] += Gv[:, :, Ny-3] * (-V[1:-1, 1:-1, Ny-2] * inv_2dy + nu_val * inv_dy2)
+    grad_v[1:-1, 1:-1, Ny-1] += -Gdiv[:, :, Ny-3] * inv_2dy
+
+    # P boundaries: p_x/p_y adjoint
+    grad_p[1:-1, 0, 1:-1] += Gu[:, 0] * inv_2dx
+    grad_p[1:-1, Nx-1, 1:-1] += -Gu[:, Nx-3] * inv_2dx
+    grad_p[1:-1, 1:-1, 0] += Gv[:, :, 0] * inv_2dy
+    grad_p[1:-1, 1:-1, Ny-1] += -Gv[:, :, Ny-3] * inv_2dy
 
 
 def ns2d_residual_triton(U, V, P, dx, dy, dt, nu):

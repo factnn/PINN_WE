@@ -3,7 +3,7 @@ import sys, os; sys.path.insert(0, __import__('pathlib').Path(__file__).parent.p
 import torch
 from baseline.common_2d import *
 from baseline.common_2d import infer
-from kernels.stencil_2d import ns2d_residual_triton, ns2d_fwd_kernel, ns2d_bwd_kernel
+from kernels.stencil_2d import ns2d_residual_triton, ns2d_fwd_kernel, ns2d_bwd_kernel, _add_boundary_gradients
 
 class _NSTriton(torch.autograd.Function):
     """Full Triton forward+backward (no PyTorch fallback)."""
@@ -37,6 +37,7 @@ class _NSTriton(torch.autograd.Function):
         grid = (Nt-2, (Nx-2+BLOCK_X-1)//BLOCK_X, (Ny-2+BLOCK_Y-1)//BLOCK_Y)
         ns2d_bwd_kernel[grid](U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p,
                               Nt, Nx, Ny, dx, dy, dt, nu, BLOCK_X, BLOCK_Y)
+        _add_boundary_gradients(U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p, dx, dy, dt, nu)
         return grad_u, grad_v, grad_p, None, None, None
 
 def loss_fn(model, xyt, X, Y, T, U_exact, V_exact, P_exact, dx, dy, dt):
