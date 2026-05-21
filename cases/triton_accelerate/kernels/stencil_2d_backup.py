@@ -210,7 +210,7 @@ class _NS2DTriton(torch.autograd.Function):
         U, V, P = ctx.saved_tensors[:3]
         dx, dy, dt, nu = ctx.dx, ctx.dy, ctx.dt, ctx.nu
         import sys; sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent.parent))
-        from baseline.common_2d import pde_residual_pytorch
+        from cases.tgv_2d.common import pde_residual_pytorch
         Ua=U.detach().requires_grad_(True)
         Va=V.detach().requires_grad_(True)
         Pa=P.detach().requires_grad_(True)
@@ -229,7 +229,7 @@ def ns2d_residual_triton(U, V, P, dx, dy, dt, nu):
 if __name__ == "__main__":
     import sys, numpy as np
     sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent.parent))
-    from baseline.common_2d import pde_residual_pytorch
+    from cases.tgv_2d.common import pde_residual_pytorch
 
     Nt, Nx, Ny = 10, 32, 32
     nu_val = 0.01
