@@ -111,7 +111,7 @@ def unified_loss_fn(model, xyt, X, Y, T, C_exact, dx, dy, dt):
 # 4. Training & visualization
 # ==========================================
 def train_and_save(backend_name, model_fn, loss_fn=None,
-                   max_epochs=200000, lr=1e-3, loss_threshold=1e-4, runs=1):
+                   max_epochs=200000, lr=1e-3, loss_threshold=1e-5, runs=1):
     if loss_fn is None:
         loss_fn = unified_loss_fn
 
@@ -203,7 +203,7 @@ def base_argparser(description):
     p.add_argument('--runs', type=int, default=1)
     p.add_argument('--max-epochs', type=int, default=200000)
     p.add_argument('--lr', type=float, default=1e-3)
-    p.add_argument('--threshold', type=float, default=1e-4)
+    p.add_argument('--threshold', type=float, default=1e-5)
     p.add_argument('--gpu', type=int, default=0)
     return p
 
