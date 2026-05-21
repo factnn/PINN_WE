@@ -36,11 +36,12 @@ class MLP(nn.Module):
         self.out_u = nn.Linear(width, 1)
         self.out_v = nn.Linear(width, 1)
         self.out_w = nn.Linear(width, 1)
+        self.out_p = nn.Linear(width, 1)
 
     def forward(self, xyz):
         h = self.net(xyz)
         return (self.out_u(h).squeeze(-1), self.out_v(h).squeeze(-1),
-                self.out_w(h).squeeze(-1))
+                self.out_w(h).squeeze(-1), self.out_p(h).squeeze(-1))
 
 
 class PhyCNN(nn.Module):
@@ -51,13 +52,13 @@ class PhyCNN(nn.Module):
             nn.Conv3d(3, channels, kernel_size=5, padding=2), nn.Tanh(),
             nn.Conv3d(channels, channels, kernel_size=5, padding=2), nn.Tanh(),
             nn.Conv3d(channels, channels, kernel_size=5, padding=2), nn.Tanh(),
-            nn.Conv3d(channels, 3, kernel_size=5, padding=2),  # U, V, W
+            nn.Conv3d(channels, 4, kernel_size=5, padding=2),  # U, V, W, P
         )
 
     def forward(self, X, Y, Z):
         inputs = torch.stack([X, Y, Z], dim=0).unsqueeze(0)  # [1, 3, Nx, Ny, Nz]
-        out = self.enc(inputs).squeeze(0)  # [3, Nx, Ny, Nz]
-        return out[0], out[1], out[2]
+        out = self.enc(inputs).squeeze(0)  # [4, Nx, Ny, Nz]
+        return out[0], out[1], out[2], out[3]
 
 
 # ==========================================
@@ -75,9 +76,9 @@ def make_grid():
 # ==========================================
 # 3. PDE residual & losses
 # ==========================================
-def pde_residual_pytorch(U, V, W, dx, dy, dz):
-    """Steady 3D NS: u*u_x + v*u_y + w*u_z = nu*laplacian(u), etc.
-    U, V, W: [Nx, Ny, Nz]
+def pde_residual_pytorch(U, V, W, P, dx, dy, dz):
+    """Steady 3D incompressible NS: momentum + P + div.
+    U, V, W, P: [Nx, Ny, Nz]
     """
     i = slice(1, -1)
     # first derivatives
@@ -90,6 +91,9 @@ def pde_residual_pytorch(U, V, W, dx, dy, dz):
     w_x = (W[2:,i,i] - W[:-2,i,i]) / (2*dx)
     w_y = (W[i,2:,i] - W[i,:-2,i]) / (2*dy)
     w_z = (W[i,i,2:] - W[i,i,:-2]) / (2*dz)
+    p_x = (P[2:,i,i] - P[:-2,i,i]) / (2*dx)
+    p_y = (P[i,2:,i] - P[i,:-2,i]) / (2*dy)
+    p_z = (P[i,i,2:] - P[i,i,:-2]) / (2*dz)
     # second derivatives
     u_xx = (U[2:,i,i] - 2*U[i,i,i] + U[:-2,i,i]) / dx**2
     u_yy = (U[i,2:,i] - 2*U[i,i,i] + U[i,:-2,i]) / dy**2
@@ -102,10 +106,11 @@ def pde_residual_pytorch(U, V, W, dx, dy, dz):
     w_zz = (W[i,i,2:] - 2*W[i,i,i] + W[i,i,:-2]) / dz**2
     # center values
     uc = U[i,i,i]; vc = V[i,i,i]; wc = W[i,i,i]
-    res_u = uc*u_x + vc*u_y + wc*u_z - nu*(u_xx + u_yy + u_zz)
-    res_v = uc*v_x + vc*v_y + wc*v_z - nu*(v_xx + v_yy + v_zz)
-    res_w = uc*w_x + vc*w_y + wc*w_z - nu*(w_xx + w_yy + w_zz)
-    return (res_u**2 + res_v**2 + res_w**2).mean()
+    res_u = uc*u_x + vc*u_y + wc*u_z + p_x - nu*(u_xx + u_yy + u_zz)
+    res_v = uc*v_x + vc*v_y + wc*v_z + p_y - nu*(v_xx + v_yy + v_zz)
+    res_w = uc*w_x + vc*w_y + wc*w_z + p_z - nu*(w_xx + w_yy + w_zz)
+    res_div = u_x + v_y + w_z
+    return (res_u**2 + res_v**2 + res_w**2 + res_div**2).mean()
 
 
 def bc_loss(U, V, W):
@@ -127,8 +132,8 @@ def bc_loss(U, V, W):
 
 
 def unified_loss_fn(model, xyz, X, Y, Z, dx, dy, dz):
-    U, V, W = infer(model, xyz, X, Y, Z)
-    return pde_residual_pytorch(U, V, W, dx, dy, dz) + 10 * bc_loss(U, V, W)
+    U, V, W, P = infer(model, xyz, X, Y, Z)
+    return pde_residual_pytorch(U, V, W, P, dx, dy, dz) + 10 * bc_loss(U, V, W)
 
 
 # ==========================================
@@ -137,20 +142,21 @@ def unified_loss_fn(model, xyz, X, Y, Z, dx, dy, dz):
 def infer(model, xyz, X, Y, Z):
     inner = getattr(model, '_orig_mod', model)
     if isinstance(inner, PhyCNN):
-        U, V, W = model(X, Y, Z)
+        U, V, W, P = model(X, Y, Z)
     else:
-        u_f, v_f, w_f = model(xyz)
+        u_f, v_f, w_f, p_f = model(xyz)
         U = u_f.reshape(Nx, Ny, Nz)
         V = v_f.reshape(Nx, Ny, Nz)
         W = w_f.reshape(Nx, Ny, Nz)
-    return U, V, W
+        P = p_f.reshape(Nx, Ny, Nz)
+    return U, V, W, P
 
 
 # ==========================================
 # 5. Training & visualization
 # ==========================================
 def train_and_save(backend_name, model_fn, loss_fn=None,
-                   max_epochs=50000, lr=1e-3, loss_threshold=1e-4, runs=1):
+                   max_epochs=200000, lr=1e-3, loss_threshold=1e-4, runs=1):
     if loss_fn is None:
         loss_fn = unified_loss_fn
 
@@ -195,7 +201,7 @@ def train_and_save(backend_name, model_fn, loss_fn=None,
     ckpt = OUT / f"model_{backend_name}.pt"
     torch.save(getattr(model, '_orig_mod', model).state_dict(), ckpt)
 
-    bytes_per_step = 3 * Nx * Ny * Nz * 4 * 14
+    bytes_per_step = 4 * Nx * Ny * Nz * 4 * 14
     mem_bw_gbs = bytes_per_step / (avg_step_ms * 1e-3) / 1e9
 
     metrics = dict(
@@ -207,7 +213,7 @@ def train_and_save(backend_name, model_fn, loss_fn=None,
     np.save(OUT / f"meta_{backend_name}.npy", metrics)
 
     with torch.no_grad():
-        U_pred, V_pred, W_pred = infer(model, xyz, X, Y, Z)
+        U_pred, V_pred, W_pred, _ = infer(model, xyz, X, Y, Z)
     U_np = U_pred.cpu().numpy(); V_np = V_pred.cpu().numpy()
     _plot(U_np, V_np, X, Y, backend_name)
 
@@ -242,7 +248,7 @@ def _plot(U, V, X, Y, name):
 def base_argparser(description):
     p = argparse.ArgumentParser(description=description)
     p.add_argument('--runs', type=int, default=1)
-    p.add_argument('--max-epochs', type=int, default=50000)
+    p.add_argument('--max-epochs', type=int, default=200000)
     p.add_argument('--lr', type=float, default=1e-3)
     p.add_argument('--threshold', type=float, default=1e-4)
     p.add_argument('--gpu', type=int, default=0)
