@@ -34,8 +34,8 @@ def parse_args():
                    help=f"Case name or 'all'. Choices: {ALL_CASES}")
     p.add_argument("--backend", type=str, default="all",
                    help=f"Backend name or 'all'. Choices: {BACKENDS}")
-    p.add_argument("--track", type=str, default="2", choices=["1", "2", "all"],
-                   help="Track: 1 (throughput), 2 (convergence), or all")
+    p.add_argument("--track", type=str, default="2", choices=["0", "1", "2", "all"],
+                   help="Track: 0 (kernel), 1 (throughput), 2 (convergence), or all")
     p.add_argument("--gpu", type=int, default=0)
     # Track 2 params
     p.add_argument("--max-epochs", type=int, default=None,
@@ -59,6 +59,10 @@ def run_case(case_name, backends, tracks, args):
 
     max_epochs = args.max_epochs or 200000
     threshold = args.threshold or 1e-5
+
+    if "0" in tracks:
+        from engine.track0 import run_track0
+        run_track0(physics, ctx, device=device)
 
     if "1" in tracks:
         from engine.track1 import run_track1
@@ -89,7 +93,7 @@ def main():
 
     # Resolve tracks
     if args.track == "all":
-        tracks = ["1", "2"]
+        tracks = ["0", "1", "2"]
     else:
         tracks = [args.track]
 
