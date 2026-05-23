@@ -10,19 +10,20 @@ Pure PDE residual computation on random fields. No model forward/backward — is
 
 | Case | Grid | PyTorch FD (ms) | Triton (ms) | Fwd Speedup | Bwd Speedup | **Total Speedup** |
 |------|------|:-:|:-:|:-:|:-:|:-:|
-| burgers_1d_steady | 256 | 1.00 | 0.79 | 1.95x | 1.18x | **1.27x** |
-| burgers_1d_unsteady | 1024×100 | 1.74 | 1.05 | 1.79x | 1.63x | **1.66x** |
-| ldc_2d | 64×64 | 4.49 | 2.45 | 2.69x | 1.68x | **1.83x** |
-| ldc_3d | 32³ | 10.00 | 4.92 | 2.99x | 1.85x | **2.03x** |
-| transport_2d | 64×64×20 | 2.60 | 1.32 | 2.67x | 1.85x | **1.97x** |
-| tgv_2d | 64×64×20 | 6.54 | 3.45 | 2.55x | 1.77x | **1.89x** |
-| tgv_3d | 32³×10 | 14.50 | 6.21 | 3.12x | 2.20x | **2.34x** |
+| burgers_1d_steady | 256 | 0.98 | 0.59 | 1.41x | 1.75x | **1.68x** |
+| burgers_1d_unsteady | 1024×100 | 1.71 | 1.14 | 1.59x | 1.47x | **1.49x** |
+| ldc_2d | 64×64 | 4.76 | 2.53 | 2.64x | 1.74x | **1.88x** |
+| ldc_3d | 32³ | 10.58 | 5.34 | 3.10x | 1.79x | **1.98x** |
+| transport_2d | 64×64×20 | 2.60 | 1.34 | 2.70x | 1.80x | **1.94x** |
+| tgv_2d | 64×64×20 | 6.55 | 3.11 | 2.33x | 2.05x | **2.11x** |
+| tgv_3d | 32³×10 | 13.87 | 5.52 | 2.99x | 2.41x | **2.51x** |
 | sod_2d | 200×50 | 4.06 | — | — | — | N/A (no kernel) |
 
 **Key findings**:
-- Forward speedup scales with problem size: 1.8x (1D) → 2.7x (2D) → 3.1x (3D)
-- Backward consistently 1.6–2.2x faster (adjoint kernel vs autograd-traced FD)
-- Largest gain on 3D TGV: **2.34x total** (most stencil ops to fuse)
+- Forward speedup: 1.4x (1D) → 2.7x (2D) → 3.1x (3D)
+- Backward speedup: 1.5–2.4x (adjoint kernel vs autograd-traced FD)
+- Largest gain on 3D TGV: **2.51x total** (most stencil ops to fuse)
+- All kernels use `@triton.autotune` with BLOCK in [64, 128, 256, 512]
 
 ---
 
