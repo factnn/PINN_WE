@@ -10,6 +10,15 @@ import triton.language as tl
 
 
 # ── Forward kernel ─────────────────────────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK': 64}),
+        triton.Config({'BLOCK': 128}),
+        triton.Config({'BLOCK': 256}),
+        triton.Config({'BLOCK': 512}),
+    ],
+    key=['Nx', 'Ny', 'Nz'],
+)
 @triton.jit
 def ns3d_fwd_kernel(
     U_ptr, V_ptr, W_ptr, P_ptr,
@@ -120,6 +129,15 @@ def ns3d_fwd_kernel(
 
 
 # ── Backward (adjoint) kernel ──────────────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK': 64}),
+        triton.Config({'BLOCK': 128}),
+        triton.Config({'BLOCK': 256}),
+        triton.Config({'BLOCK': 512}),
+    ],
+    key=['Nx', 'Ny', 'Nz'],
+)
 @triton.jit
 def ns3d_bwd_kernel(
     U_ptr, V_ptr, W_ptr,
@@ -342,10 +360,9 @@ class _NS3DSteadyTriton(torch.autograd.Function):
         res_w   = torch.empty_like(res_u)
         res_div = torch.empty_like(res_u)
 
-        BLOCK = 256
-        grid = ((N_total + BLOCK - 1) // BLOCK,)
+        grid = lambda meta: ((N_total + meta['BLOCK'] - 1) // meta['BLOCK'],)
         ns3d_fwd_kernel[grid](U, V, W, P, res_u, res_v, res_w, res_div,
-                              Nx, Ny, Nz, dx, dy, dz, nu_val, BLOCK)
+                              Nx, Ny, Nz, dx, dy, dz, nu_val)
 
         ctx.save_for_backward(U, V, W)
         ctx.res_u, ctx.res_v, ctx.res_w, ctx.res_div = res_u, res_v, res_w, res_div
@@ -371,11 +388,10 @@ class _NS3DSteadyTriton(torch.autograd.Function):
         grad_w = torch.zeros_like(W)
         grad_p = torch.zeros_like(U)
 
-        BLOCK = 256
-        grid = ((N_total + BLOCK - 1) // BLOCK,)
+        grid = lambda meta: ((N_total + meta['BLOCK'] - 1) // meta['BLOCK'],)
         ns3d_bwd_kernel[grid](U, V, W, Gu, Gv, Gw, Gdiv,
                               grad_u, grad_v, grad_w, grad_p,
-                              Nx, Ny, Nz, dx, dy, dz, nu_val, BLOCK)
+                              Nx, Ny, Nz, dx, dy, dz, nu_val)
 
         # Reshape G values from flat to 3D for boundary slicing
         Ni_ny, Ni_nz = Ny - 2, Nz - 2

@@ -8,6 +8,15 @@ import triton.language as tl
 
 
 # ── Forward kernel ─────────────────────────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK': 64}),
+        triton.Config({'BLOCK': 128}),
+        triton.Config({'BLOCK': 256}),
+        triton.Config({'BLOCK': 512}),
+    ],
+    key=['Nx'],
+)
 @triton.jit
 def burgers_steady_fwd_kernel(
     u_ptr, res_ptr,
@@ -31,6 +40,15 @@ def burgers_steady_fwd_kernel(
 
 
 # ── Backward (adjoint) kernel ──────────────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK': 64}),
+        triton.Config({'BLOCK': 128}),
+        triton.Config({'BLOCK': 256}),
+        triton.Config({'BLOCK': 512}),
+    ],
+    key=['Nx'],
+)
 @triton.jit
 def burgers_steady_bwd_kernel(
     u_ptr, G_ptr, grad_ptr,
@@ -69,9 +87,8 @@ def burgers_steady_backward(u, res, dx, nu_val):
     Nx = u.shape[0]
     G = 2.0 * res / (Nx - 2)
     grad_u = torch.zeros(Nx, device=u.device, dtype=u.dtype)
-    BLOCK = 256
-    grid = ((Nx - 2 + BLOCK - 1) // BLOCK,)
-    burgers_steady_bwd_kernel[grid](u, G, grad_u, Nx, dx, nu_val, BLOCK)
+    grid = lambda meta: ((Nx - 2 + meta['BLOCK'] - 1) // meta['BLOCK'],)
+    burgers_steady_bwd_kernel[grid](u, G, grad_u, Nx, dx, nu_val)
 
     # Boundary contributions
     inv_2dx = 1.0 / (2.0 * dx)
@@ -89,9 +106,8 @@ class _BurgersSteadyTriton(torch.autograd.Function):
         u = u.contiguous()
         Nx = u.shape[0]
         res = torch.empty(Nx - 2, device=u.device, dtype=u.dtype)
-        BLOCK = 256
-        grid = ((Nx - 2 + BLOCK - 1) // BLOCK,)
-        burgers_steady_fwd_kernel[grid](u, res, Nx, dx, nu_val, BLOCK)
+        grid = lambda meta: ((Nx - 2 + meta['BLOCK'] - 1) // meta['BLOCK'],)
+        burgers_steady_fwd_kernel[grid](u, res, Nx, dx, nu_val)
         ctx.save_for_backward(u, res)
         ctx.dx, ctx.nu_val = dx, nu_val
         return res.pow(2).mean()

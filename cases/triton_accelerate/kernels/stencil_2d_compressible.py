@@ -8,6 +8,15 @@ import triton
 import triton.language as tl
 
 # ── FORWARD KERNEL ──────────────────────────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_X': 64}),
+        triton.Config({'BLOCK_X': 128}),
+        triton.Config({'BLOCK_X': 256}),
+        triton.Config({'BLOCK_X': 512}),
+    ],
+    key=['Nx'],
+)
 @triton.jit
 def euler_fwd_kernel(
     Rho_ptr, M_ptr, E_ptr,
@@ -89,6 +98,15 @@ def euler_fwd_kernel(
 
 
 # ── BACKWARD (ADJOINT) KERNEL ───────────────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_X': 64}),
+        triton.Config({'BLOCK_X': 128}),
+        triton.Config({'BLOCK_X': 256}),
+        triton.Config({'BLOCK_X': 512}),
+    ],
+    key=['Nx'],
+)
 @triton.jit
 def euler_bwd_kernel(
     Rho_ptr, M_ptr, E_ptr,
@@ -233,12 +251,11 @@ class _CompressibleEulerTriton(torch.autograd.Function):
         res_m   = torch.empty_like(res_rho)
         res_e   = torch.empty_like(res_rho)
 
-        BLOCK_X = 256
-        grid = (Nt - 2, (Nx - 2 + BLOCK_X - 1) // BLOCK_X)
-        
+        grid = lambda meta: (Nt - 2, (Nx - 2 + meta['BLOCK_X'] - 1) // meta['BLOCK_X'])
+
         euler_fwd_kernel[grid](
             Rho, M, E, res_rho, res_m, res_e,
-            Nt, Nx, dx, dt, gamma, BLOCK_X
+            Nt, Nx, dx, dt, gamma
         )
 
         ctx.save_for_backward(Rho, M, E)
@@ -262,13 +279,12 @@ class _CompressibleEulerTriton(torch.autograd.Function):
         grad_m   = torch.zeros_like(M)
         grad_e   = torch.zeros_like(E)
 
-        BLOCK_X = 256
-        grid = (Nt - 2, (Nx - 2 + BLOCK_X - 1) // BLOCK_X)
-        
+        grid = lambda meta: (Nt - 2, (Nx - 2 + meta['BLOCK_X'] - 1) // meta['BLOCK_X'])
+
         euler_bwd_kernel[grid](
             Rho, M, E, Gr_flat, Gm_flat, Ge_flat,
             grad_rho, grad_m, grad_e,
-            Nt, Nx, dx, dt, gamma, BLOCK_X
+            Nt, Nx, dx, dt, gamma
         )
 
         # Reshape for boundary fixes

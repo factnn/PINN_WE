@@ -9,6 +9,15 @@ import triton.language as tl
 
 
 # ── Forward kernel ─────────────────────────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_X': 8, 'BLOCK_Y': 8}),
+        triton.Config({'BLOCK_X': 16, 'BLOCK_Y': 16}),
+        triton.Config({'BLOCK_X': 32, 'BLOCK_Y': 32}),
+        triton.Config({'BLOCK_X': 16, 'BLOCK_Y': 32}),
+    ],
+    key=['Nx', 'Ny'],
+)
 @triton.jit
 def advdiff_fwd_kernel(
     C_ptr, res_ptr,
@@ -56,6 +65,15 @@ def advdiff_fwd_kernel(
 
 
 # ── Backward (adjoint) kernel ──────────────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_X': 8, 'BLOCK_Y': 8}),
+        triton.Config({'BLOCK_X': 16, 'BLOCK_Y': 16}),
+        triton.Config({'BLOCK_X': 32, 'BLOCK_Y': 32}),
+        triton.Config({'BLOCK_X': 16, 'BLOCK_Y': 32}),
+    ],
+    key=['Nx', 'Ny'],
+)
 @triton.jit
 def advdiff_bwd_kernel(
     C_ptr, G_ptr, grad_ptr,
@@ -170,9 +188,8 @@ class _AdvDiffTriton(torch.autograd.Function):
         Nt, Nx, Ny = C.shape
         N_total = (Nt - 2) * (Nx - 2) * (Ny - 2)
         res = torch.empty(N_total, device=C.device, dtype=C.dtype)
-        BLOCK_X, BLOCK_Y = 16, 16
-        grid = (Nt - 2, (Nx - 2 + BLOCK_X - 1) // BLOCK_X, (Ny - 2 + BLOCK_Y - 1) // BLOCK_Y)
-        advdiff_fwd_kernel[grid](C, res, Nt, Nx, Ny, dx, dy, dt, u0_val, v0_val, nu_val, BLOCK_X, BLOCK_Y)
+        grid = lambda meta: (Nt - 2, (Nx - 2 + meta['BLOCK_X'] - 1) // meta['BLOCK_X'], (Ny - 2 + meta['BLOCK_Y'] - 1) // meta['BLOCK_Y'])
+        advdiff_fwd_kernel[grid](C, res, Nt, Nx, Ny, dx, dy, dt, u0_val, v0_val, nu_val)
         ctx.save_for_backward(C)
         ctx.res = res
         ctx.dx, ctx.dy, ctx.dt = dx, dy, dt
@@ -192,10 +209,9 @@ class _AdvDiffTriton(torch.autograd.Function):
         G = res * scale
 
         grad_c = torch.zeros_like(C)
-        BLOCK_X, BLOCK_Y = 16, 16
-        grid = (Nt - 2, (Nx - 2 + BLOCK_X - 1) // BLOCK_X, (Ny - 2 + BLOCK_Y - 1) // BLOCK_Y)
+        grid = lambda meta: (Nt - 2, (Nx - 2 + meta['BLOCK_X'] - 1) // meta['BLOCK_X'], (Ny - 2 + meta['BLOCK_Y'] - 1) // meta['BLOCK_Y'])
         advdiff_bwd_kernel[grid](C, G, grad_c, Nt, Nx, Ny, dx, dy, dt,
-                                 u0_val, v0_val, nu_val, BLOCK_X, BLOCK_Y)
+                                 u0_val, v0_val, nu_val)
 
         _add_boundary_gradients_advdiff(C, G, grad_c, dx, dy, dt, nu_val, u0_val, v0_val)
 

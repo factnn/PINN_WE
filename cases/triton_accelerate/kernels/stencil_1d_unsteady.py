@@ -9,6 +9,15 @@ import triton.language as tl
 nu = 0.01 / 3.14159265358979
 
 
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK': 64}),
+        triton.Config({'BLOCK': 128}),
+        triton.Config({'BLOCK': 256}),
+        triton.Config({'BLOCK': 512}),
+    ],
+    key=['N'],
+)
 @triton.jit
 def burgers_residual_1d_kernel(
     u_ptr, res_ptr,
@@ -35,13 +44,21 @@ def burgers_residual_1d_kernel(
 def burgers_residual_triton(u: torch.Tensor, dx: float, nu: float = 0.01 / 3.14159265358979) -> torch.Tensor:
     N = u.shape[0]
     res = torch.empty(N - 2, device=u.device, dtype=u.dtype)
-    BLOCK = 256
-    grid = ((N - 2 + BLOCK - 1) // BLOCK,)
-    burgers_residual_1d_kernel[grid](u, res, dx, nu, N, BLOCK)
+    grid = lambda meta: ((N - 2 + meta['BLOCK'] - 1) // meta['BLOCK'],)
+    burgers_residual_1d_kernel[grid](u, res, dx, nu, N)
     return res
 
 
 # ── Backward kernel ────────────────────────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK': 64}),
+        triton.Config({'BLOCK': 128}),
+        triton.Config({'BLOCK': 256}),
+        triton.Config({'BLOCK': 512}),
+    ],
+    key=['N'],
+)
 @triton.jit
 def burgers_bwd_kernel(
     u_ptr, G_ptr, grad_ptr,
@@ -96,9 +113,8 @@ def burgers_backward_triton(u: torch.Tensor, res: torch.Tensor, dx: float, nu: f
     N = u.shape[0]
     G = 2.0 * res / (N - 2)
     grad_u = torch.zeros(N, device=u.device, dtype=u.dtype)
-    BLOCK = 256
-    grid = ((N - 2 + BLOCK - 1) // BLOCK,)
-    burgers_bwd_kernel[grid](u, G, grad_u, dx, nu, N, BLOCK)
+    grid = lambda meta: ((N - 2 + meta['BLOCK'] - 1) // meta['BLOCK'],)
+    burgers_bwd_kernel[grid](u, G, grad_u, dx, nu, N)
 
     # --- Boundary gradient contributions ---
     inv_2dx = 1.0 / (2.0 * dx)
@@ -133,6 +149,15 @@ def burgers_loss_triton_autograd(u: torch.Tensor, dx: float, nu_val: float = 0.0
 
 
 # ── 2D time-dependent Burgers forward kernel (stores res, not res²) ───────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_X': 64}),
+        triton.Config({'BLOCK_X': 128}),
+        triton.Config({'BLOCK_X': 256}),
+        triton.Config({'BLOCK_X': 512}),
+    ],
+    key=['Nx'],
+)
 @triton.jit
 def burgers_residual_2d_raw_kernel(
     U_ptr, res_ptr,
@@ -167,6 +192,15 @@ def burgers_residual_2d_raw_kernel(
 
 
 # ── 2D time-dependent Burgers backward ────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_X': 64}),
+        triton.Config({'BLOCK_X': 128}),
+        triton.Config({'BLOCK_X': 256}),
+        triton.Config({'BLOCK_X': 512}),
+    ],
+    key=['Nx'],
+)
 @triton.jit
 def burgers_2d_bwd_kernel(
     u_ptr, G_ptr, grad_ptr,
@@ -226,9 +260,8 @@ def burgers_2d_backward_triton(U: torch.Tensor, res: torch.Tensor, dx: float, dt
     N_res = res.numel()
     G = 2.0 * res / N_res  # upstream gradient
     grad_U = torch.zeros(Nt, Nx, device=U.device, dtype=U.dtype)
-    BLOCK_X = 128
-    grid = (Nt - 2, (Nx - 2 + BLOCK_X - 1) // BLOCK_X)
-    burgers_2d_bwd_kernel[grid](U, G, grad_U, Nt, Nx, dx, dt, nu_val, BLOCK_X)
+    grid = lambda meta: (Nt - 2, (Nx - 2 + meta['BLOCK_X'] - 1) // meta['BLOCK_X'])
+    burgers_2d_bwd_kernel[grid](U, G, grad_U, Nt, Nx, dx, dt, nu_val)
 
     # --- Boundary gradient contributions ---
     # The kernel only covers interior i in [1,Nt-2], j in [1,Nx-2].
@@ -272,9 +305,8 @@ class _Burgers2DTriton(torch.autograd.Function):
         U_c = U.contiguous()
         Nt_, Nx_ = U_c.shape
         res = torch.empty((Nt_ - 2, Nx_ - 2), device=U.device, dtype=U.dtype)
-        BLOCK_X = 128
-        grid = (Nt_ - 2, (Nx_ - 2 + BLOCK_X - 1) // BLOCK_X)
-        burgers_residual_2d_raw_kernel[grid](U_c, res, Nt_, Nx_, dx, dt, nu_val, BLOCK_X)
+        grid = lambda meta: (Nt_ - 2, (Nx_ - 2 + meta['BLOCK_X'] - 1) // meta['BLOCK_X'])
+        burgers_residual_2d_raw_kernel[grid](U_c, res, Nt_, Nx_, dx, dt, nu_val)
         ctx.save_for_backward(U_c, res)
         ctx.dx, ctx.dt, ctx.nu_val = dx, dt, nu_val
         return res.pow(2).mean()

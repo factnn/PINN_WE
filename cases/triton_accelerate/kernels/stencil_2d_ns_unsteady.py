@@ -9,6 +9,15 @@ import triton.language as tl
 
 
 # ── Forward kernel ─────────────────────────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_X': 8, 'BLOCK_Y': 8}),
+        triton.Config({'BLOCK_X': 16, 'BLOCK_Y': 16}),
+        triton.Config({'BLOCK_X': 32, 'BLOCK_Y': 32}),
+        triton.Config({'BLOCK_X': 16, 'BLOCK_Y': 32}),
+    ],
+    key=['Nx', 'Ny'],
+)
 @triton.jit
 def ns2d_fwd_kernel(
     U_ptr, V_ptr, P_ptr,
@@ -82,6 +91,15 @@ def ns2d_fwd_kernel(
 
 
 # ── Backward (adjoint) kernel ──────────────────────────────────────────────
+@triton.autotune(
+    configs=[
+        triton.Config({'BLOCK_X': 8, 'BLOCK_Y': 8}),
+        triton.Config({'BLOCK_X': 16, 'BLOCK_Y': 16}),
+        triton.Config({'BLOCK_X': 32, 'BLOCK_Y': 32}),
+        triton.Config({'BLOCK_X': 16, 'BLOCK_Y': 32}),
+    ],
+    key=['Nx', 'Ny'],
+)
 @triton.jit
 def ns2d_bwd_kernel(
     U_ptr, V_ptr,
@@ -200,10 +218,9 @@ class _NS2DTriton(torch.autograd.Function):
         res_u   = torch.empty((Nt-2, Nx-2, Ny-2), device=U.device, dtype=U.dtype)
         res_v   = torch.empty_like(res_u)
         res_div = torch.empty_like(res_u)
-        BLOCK_X, BLOCK_Y = 16, 16
-        grid = (Nt-2, (Nx-2+BLOCK_X-1)//BLOCK_X, (Ny-2+BLOCK_Y-1)//BLOCK_Y)
+        grid = lambda meta: (Nt-2, (Nx-2+meta['BLOCK_X']-1)//meta['BLOCK_X'], (Ny-2+meta['BLOCK_Y']-1)//meta['BLOCK_Y'])
         ns2d_fwd_kernel[grid](U, V, P, res_u, res_v, res_div,
-                              Nt, Nx, Ny, dx, dy, dt, nu, BLOCK_X, BLOCK_Y)
+                              Nt, Nx, Ny, dx, dy, dt, nu)
         ctx.save_for_backward(U, V)
         ctx.res_u, ctx.res_v, ctx.res_div = res_u, res_v, res_div
         ctx.dx, ctx.dy, ctx.dt, ctx.nu = dx, dy, dt, nu
@@ -223,11 +240,10 @@ class _NS2DTriton(torch.autograd.Function):
         grad_u = torch.zeros_like(U)
         grad_v = torch.zeros_like(V)
         grad_p = torch.zeros_like(U)
-        BLOCK_X, BLOCK_Y = 16, 16
-        grid = (Nt-2, (Nx-2+BLOCK_X-1)//BLOCK_X, (Ny-2+BLOCK_Y-1)//BLOCK_Y)
+        grid = lambda meta: (Nt-2, (Nx-2+meta['BLOCK_X']-1)//meta['BLOCK_X'], (Ny-2+meta['BLOCK_Y']-1)//meta['BLOCK_Y'])
         ns2d_bwd_kernel[grid](
             U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p,
-            Nt, Nx, Ny, dx, dy, dt, nu_val, BLOCK_X, BLOCK_Y
+            Nt, Nx, Ny, dx, dy, dt, nu_val
         )
         _add_boundary_gradients(U, V, Gu, Gv, Gdiv, grad_u, grad_v, grad_p, dx, dy, dt, nu_val)
 
