@@ -165,9 +165,10 @@ def loss_canpinn(model, ctx):
 
 
 def loss_triton(model, ctx):
-    raise NotImplementedError(
-        "No Triton kernel available for compressible Euler equations (sod_2d)."
-    )
+    from kernels.stencil_2d_compressible import compressible_sod_residual_triton
+    rho, rhou, E = infer(model, ctx)
+    return compressible_sod_residual_triton(rho, rhou, E, ctx["dx"], ctx["dt"], gamma) + \
+           10 * _ic_loss(rho, rhou, E, ctx["X"]) + _bc_loss(rho, rhou, E)
 
 
 # ─── Evaluation ──────────────────────────────────────────────────────────────
