@@ -86,6 +86,9 @@ def run_track2(physics, ctx, backend, device="cuda",
     # Compute L2 error
     l2 = physics.compute_l2_error(model, ctx)
 
+    # Final PDE loss (always available, unlike L2 which needs exact solution)
+    final_loss = history[-1][2] if history else None
+
     # Plot
     physics.plot_solution(model, ctx, backend, out_dir)
 
@@ -96,7 +99,7 @@ def run_track2(physics, ctx, backend, device="cuda",
     # Save metrics
     metrics = dict(
         history=history, elapsed=elapsed, mem_gb=mem_gb,
-        t2s=t2s, t2s_ep=t2s_ep, l2=l2,
+        t2s=t2s, t2s_ep=t2s_ep, l2=l2, final_loss=final_loss,
         avg_step_ms=avg_step_ms, mem_bw_gbs=mem_bw_gbs,
         all_elapsed=all_elapsed, all_t2s=all_t2s,
     )
@@ -108,7 +111,7 @@ def run_track2(physics, ctx, backend, device="cuda",
     print(f"  Total_Epochs : {t2s_ep or ep}")
     print(f"  Avg_Step_ms  : {avg_step_ms:.2f}")
     print(f"  Peak_Mem_GB  : {mem_gb:.3f}")
-    print(f"  Mem_BW_GBs   : {mem_bw_gbs:.1f}")
+    print(f"  Final_Loss   : {final_loss:.4e}" if final_loss else "  Final_Loss   : N/A")
     print(f"  L2_Error     : {l2:.4e}" if l2 is not None else "  L2_Error     : N/A")
 
     return metrics

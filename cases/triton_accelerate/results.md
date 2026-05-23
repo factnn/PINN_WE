@@ -149,8 +149,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **MLP** (baseline: mlp_vanilla)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | mlp_vanilla | - | - | - | - | - |
 | mlp_canpinn | - | - | - | - | - |
 | mlp_compile | - | - | - | - | - |
@@ -158,8 +158,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **CNN** (baseline: cnn_canpinn)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | cnn_canpinn | - | - | - | - | - |
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
@@ -191,8 +191,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **MLP** (baseline: mlp_vanilla)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | mlp_vanilla | 1082.6 | 87482 | 12.32 | 0.966 | 0.31% |
 | mlp_canpinn | 639.2 | 103359 | 6.14 | 0.230 | 0.14% |
 | mlp_compile | N/A | 200000 | 6.33 | 0.208 | 0.35% |
@@ -200,8 +200,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **CNN** (baseline: cnn_canpinn)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | cnn_canpinn | - | - | - | - | - |
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
@@ -238,8 +238,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **MLP** (baseline: mlp_vanilla)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | mlp_vanilla | - | - | - | - | - |
 | mlp_canpinn | - | - | - | - | - |
 | mlp_compile | - | - | - | - | - |
@@ -247,8 +247,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **CNN** (baseline: cnn_canpinn)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | cnn_canpinn | - | - | - | - | - |
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
@@ -279,8 +279,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **MLP** (baseline: mlp_vanilla)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | mlp_vanilla | - | - | - | - | - |
 | mlp_canpinn | - | - | - | - | - |
 | mlp_compile | - | - | - | - | - |
@@ -288,8 +288,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **CNN** (baseline: cnn_canpinn)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | cnn_canpinn | - | - | - | - | - |
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
@@ -320,8 +320,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **MLP** (baseline: mlp_vanilla)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | mlp_vanilla | - | - | - | 7.830 | 2.09% |
 | mlp_canpinn | 340.7 | 27071 | 12.55 | 0.399 | 0.45% |
 | mlp_compile | - | - | - | - | - |
@@ -329,8 +329,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **CNN** (baseline: cnn_canpinn)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | cnn_canpinn | 366.6 | 30036 | 12.16 | 0.227 | 1.13% |
 | cnn_compile | - | - | - | - | - |
 | **cnn_triton** | **278.5** | 30951 | **8.95** | 0.227 | 1.46% |
@@ -366,8 +366,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **MLP** (baseline: mlp_vanilla)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | mlp_vanilla | - | - | - | - | - |
 | mlp_canpinn | - | - | - | - | - |
 | mlp_compile | - | - | - | - | - |
@@ -375,8 +375,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **CNN** (baseline: cnn_canpinn)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | cnn_canpinn | - | - | - | - | - |
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
@@ -407,8 +407,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **MLP** (baseline: mlp_vanilla)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | mlp_vanilla | - | - | - | - | - |
 | mlp_canpinn | - | - | - | - | - |
 | mlp_compile | - | - | - | - | - |
@@ -416,8 +416,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 **CNN** (baseline: cnn_canpinn)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | cnn_canpinn | - | - | - | - | - |
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
@@ -439,8 +439,8 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 ### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
 
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
 | mlp_vanilla | - | - | - | - | - |
 | mlp_canpinn | - | - | - | - | - |
 | mlp_compile | - | - | - | - | - |

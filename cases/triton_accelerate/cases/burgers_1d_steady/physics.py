@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 # ─── Constants ───────────────────────────────────────────────────────────────
 CASE_NAME = "burgers_1d_steady"
 nu = 0.01 / np.pi
-Nx = 1024
+Nx = 256
 GRID_SHAPE = (Nx,)
 
 

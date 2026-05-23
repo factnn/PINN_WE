@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 CASE_NAME = "ldc_3d"
 Re = 100.0
 nu = 1.0 / Re
-Nx, Ny, Nz = 64, 64, 64
+Nx, Ny, Nz = 48, 48, 48
 GRID_SHAPE = (Nx, Ny, Nz)
 
 
