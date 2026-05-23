@@ -445,7 +445,7 @@ if __name__ == "__main__":
 
     os.environ.setdefault('TRITON_CACHE_DIR', '/tmp/triton_stencil3d_test')
 
-    from cases.tgv_3d.common import pde_residual_pytorch, make_grid, exact_uvwp
+    from cases.tgv_3d.physics import pde_residual_pytorch, make_grid, exact_uvwp
 
     Nt, Nx, Ny, Nz = 10, 32, 32, 32
     nu_val = 0.01

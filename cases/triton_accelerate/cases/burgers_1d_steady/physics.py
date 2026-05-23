@@ -145,3 +145,11 @@ def plot_solution(model, ctx, name, out_dir):
 def bytes_per_step():
     """Estimate bytes read+written per training step."""
     return Nx * 4 * 6  # 1 field × Nx × float32 × ~6 stencil accesses
+
+# Aliases for kernel verification scripts
+pde_residual_pytorch = _pde_residual_fd
+
+def make_grid(device="cuda"):
+    x = torch.linspace(-1, 1, Nx, device=device)
+    dx = float(x[1] - x[0])
+    return x, dx

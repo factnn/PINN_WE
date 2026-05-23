@@ -114,7 +114,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent.parent))
     os.environ.setdefault('TRITON_CACHE_DIR', '/tmp/triton_burgers_steady_test')
 
-    from cases.burgers_1d_steady.common import pde_residual_pytorch, make_grid, MLP
+    from cases.burgers_1d_steady.physics import pde_residual_pytorch, make_grid, MLP
 
     Nx = 256
     nu_val = 0.01 / np.pi
@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
     # Gradient
     print("2. Gradient check (float64)...")
-    from cases.burgers_1d_steady.common import pde_residual_pytorch
+    from cases.burgers_1d_steady.physics import pde_residual_pytorch
     u_pt2 = u.clone().requires_grad_(True)
     loss_pt2 = pde_residual_pytorch(u_pt2, dx)
     loss_pt2.backward()

@@ -296,7 +296,7 @@ if __name__ == "__main__":
     sys.modules['kernels.stencil_2d_ns_unsteady'] = _self
     spec.loader.exec_module(_self)
     sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent.parent))
-    from cases.tgv_2d.common import pde_residual_pytorch
+    from cases.tgv_2d.physics import pde_residual_pytorch
     # Use the properly-loaded module's functions
     ns2d_residual_triton = _self.ns2d_residual_triton
     ns2d_fwd_kernel = _self.ns2d_fwd_kernel

@@ -263,7 +263,7 @@ if __name__ == "__main__":
     spec.loader.exec_module(_self)
     ldc_residual_triton = _self.ldc_residual_triton
 
-    from cases.ldc_2d.common import pde_residual_pytorch, make_grid, MLP
+    from cases.ldc_2d.physics import pde_residual_pytorch, make_grid, MLP
 
     Nx, Ny = 64, 64
     nu_val = 0.01

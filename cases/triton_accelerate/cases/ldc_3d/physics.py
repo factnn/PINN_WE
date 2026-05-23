@@ -220,3 +220,6 @@ def plot_solution(model, ctx, name, out_dir):
 
 def bytes_per_step():
     return 4 * Nx * Ny * Nz * 4 * 14  # U,V,W,P × grid × float32 × stencil accesses
+
+# Aliases for kernel verification scripts
+pde_residual_pytorch = _pde_residual_fd

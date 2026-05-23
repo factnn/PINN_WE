@@ -403,7 +403,7 @@ if __name__ == "__main__":
 
     os.environ.setdefault('TRITON_CACHE_DIR', '/tmp/triton_stencil3d_steady_test')
 
-    from cases.ldc_3d.common import pde_residual_pytorch
+    from cases.ldc_3d.physics import pde_residual_pytorch
 
     Nx, Ny, Nz = 32, 32, 32
     nu_val = 1.0 / 100.0  # Re=100
@@ -452,7 +452,7 @@ if __name__ == "__main__":
 
     # MLP field gradient check (float32, like real training)
     print("3. MLP field gradient check (float32)...")
-    from cases.ldc_3d.common import MLP
+    from cases.ldc_3d.physics import MLP
 
     model = MLP().to(device)
     xyz = torch.stack([X.flatten(), Y.flatten(), Z.flatten()], dim=1).float().to(device)
