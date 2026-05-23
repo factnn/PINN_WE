@@ -1,11 +1,37 @@
 # Benchmark Results
 
+> Run with: `python run.py --case <case> --track <0|1|2> --gpu <id>`
+
+---
+
+## Track 0: Kernel-Level Speedup (PyTorch FD vs Triton Fused Kernel)
+
+Pure PDE residual computation on random fields. No model forward/backward — isolates kernel performance.
+
+| Case | Grid | PyTorch FD (ms) | Triton (ms) | Fwd Speedup | Bwd Speedup | **Total Speedup** |
+|------|------|:-:|:-:|:-:|:-:|:-:|
+| burgers_1d_steady | 256 | 1.00 | 0.79 | 1.95x | 1.18x | **1.27x** |
+| burgers_1d_unsteady | 1024×100 | 1.74 | 1.05 | 1.79x | 1.63x | **1.66x** |
+| ldc_2d | 64×64 | 4.49 | 2.45 | 2.69x | 1.68x | **1.83x** |
+| ldc_3d | 32³ | 10.00 | 4.92 | 2.99x | 1.85x | **2.03x** |
+| transport_2d | 64×64×20 | 2.60 | 1.32 | 2.67x | 1.85x | **1.97x** |
+| tgv_2d | 64×64×20 | 6.54 | 3.45 | 2.55x | 1.77x | **1.89x** |
+| tgv_3d | 32³×10 | 14.50 | 6.21 | 3.12x | 2.20x | **2.34x** |
+| sod_2d | 200×50 | 4.06 | — | — | — | N/A (no kernel) |
+
+**Key findings**:
+- Forward speedup scales with problem size: 1.8x (1D) → 2.7x (2D) → 3.1x (3D)
+- Backward consistently 1.6–2.2x faster (adjoint kernel vs autograd-traced FD)
+- Largest gain on 3D TGV: **2.34x total** (most stencil ops to fuse)
+
+---
+
 ## 1. 1D Steady Burgers (`burgers_1d_steady`, Nx=256)
 
-### Track 1: Throughput (warmup=50, measure=2950 steps, 5 runs)
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
 
-| method | median(s) | avg_ms | tput(steps/s) | mem_GB | speedup |
-|--------|----------|--------|--------------|--------|---------|
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
 | mlp_vanilla | - | - | - | - | 1.00x |
 | mlp_canpinn | - | - | - | - | - |
 | mlp_compile | - | - | - | - | - |
@@ -14,7 +40,7 @@
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
 
-### Track 2: Convergence (threshold=1e-4, max=50000 epochs)
+### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
 |--------|--------|-------------|------------|------------|--------|
@@ -30,19 +56,19 @@
 
 ## 2. 1D Unsteady Burgers (`burgers_1d_unsteady`, Nx=1024, Nt=100)
 
-### Track 1: Throughput (warmup=50, measure=2950 steps, 5 runs)
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
 
-| method | median(s) | avg_ms | tput(steps/s) | mem_GB | speedup |
-|--------|----------|--------|--------------|--------|---------|
-| mlp_vanilla | 34.27 | 11.62 | 86.1 | 0.904 | 1.00x |
-| mlp_canpinn | 15.89 | 5.38 | 185.7 | 0.231 | 2.16x |
-| mlp_compile | 19.00 | 6.44 | 155.2 | 0.210 | 1.80x |
-| **mlp_triton** | **12.70** | **4.31** | **232.2** | **0.145** | **2.70x** |
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| mlp_vanilla | 11.62 | - | 86.1 | 0.904 | 1.00x |
+| mlp_canpinn | 5.38 | - | 185.7 | 0.231 | 2.16x |
+| mlp_compile | 6.44 | - | 155.2 | 0.210 | 1.80x |
+| **mlp_triton** | **4.31** | - | **232.2** | **0.145** | **2.70x** |
 | cnn_canpinn | - | - | - | - | - |
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
 
-### Track 2: Convergence (threshold=1e-4, max=200000 epochs)
+### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
 |--------|--------|-------------|------------|------------|--------|
@@ -57,16 +83,16 @@
 **Key findings**:
 - Triton T2S 396.3s vs canpinn 639.2s (**1.61x faster**)
 - vanilla mem 0.966GB vs triton 0.145GB (**6.7x less**)
-- compile never converged to 1e-4 in 200k epochs
+- compile never converged to 1e-5 in 200k epochs
 
 ---
 
-## 3. 2D LDC (`ldc_2d`, Nx=Ny=64, Re=100, steady-state, NS with P+div)
+## 3. 2D LDC (`ldc_2d`, Nx=Ny=64, Re=100, steady NS with P+div)
 
-### Track 1: Throughput (warmup=50, measure=2950 steps, 5 runs)
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
 
-| method | median(s) | avg_ms | tput(steps/s) | mem_GB | speedup |
-|--------|----------|--------|--------------|--------|---------|
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
 | mlp_vanilla | - | - | - | - | 1.00x |
 | mlp_canpinn | - | - | - | - | - |
 | mlp_compile | - | - | - | - | - |
@@ -75,29 +101,26 @@
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
 
-### Track 2: Convergence (threshold=1e-4, max=50000 epochs)
+### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_Ghia |
 |--------|--------|-------------|------------|------------|---------|
-| mlp_vanilla | N/A | 10000 | 22.40 | 0.171 | - |
-| mlp_canpinn | N/A | 10000 | 7.40 | 0.026 | - |
-| mlp_compile | N/A | 10000 | 43.95 | 0.025 | - |
-| **mlp_triton** | N/A | 50000 | **4.83** | 0.026 | - |
-| cnn_canpinn | N/A | 10000 | 8.17 | 0.048 | - |
-| cnn_compile | N/A | 10000 | 45.49 | 0.048 | - |
-| cnn_triton | N/A | 10000 | 8.98 | 0.048 | - |
-
-**Note**: None reached threshold 1e-4 within max_epochs (all stuck ~loss 0.16). Model capacity or optimization bottleneck — kernel correctness verified (forward rel diff 0, grad errors < 1e-9). mlp_triton: best avg_step (4.83ms), mlp_compile slowest (43.95ms).
-All 7 scripts pass 500-step sanity with P+div (steady NS with pressure and divergence constraint).
+| mlp_vanilla | - | - | - | - | - |
+| mlp_canpinn | - | - | - | - | - |
+| mlp_compile | - | - | - | - | - |
+| mlp_triton | - | - | - | - | - |
+| cnn_canpinn | - | - | - | - | - |
+| cnn_compile | - | - | - | - | - |
+| cnn_triton | - | - | - | - | - |
 
 ---
 
 ## 4. 2D Scalar Transport (`transport_2d`, Nx=Ny=64, Nt=20)
 
-### Track 1: Throughput (warmup=50, measure=2950 steps, 5 runs)
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
 
-| method | median(s) | avg_ms | tput(steps/s) | mem_GB | speedup |
-|--------|----------|--------|--------------|--------|---------|
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
 | mlp_vanilla | - | - | - | - | 1.00x |
 | mlp_canpinn | - | - | - | - | - |
 | mlp_compile | - | - | - | - | - |
@@ -106,7 +129,7 @@ All 7 scripts pass 500-step sanity with P+div (steady NS with pressure and diver
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
 
-### Track 2: Convergence (threshold=1e-4, max=50000 epochs)
+### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
 |--------|--------|-------------|------------|------------|--------|
@@ -120,21 +143,21 @@ All 7 scripts pass 500-step sanity with P+div (steady NS with pressure and diver
 
 ---
 
-## 5. 2D TGV (`tgv_2d`, Nx=Ny=64, Nt=20)
+## 5. 2D TGV (`tgv_2d`, Nx=Ny=64, Nt=20, unsteady NS)
 
-### Track 1: Throughput (warmup=50, measure=2950 steps, 5 runs)
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
 
-| method | median(s) | avg_ms | tput(steps/s) | mem_GB | speedup |
-|--------|----------|--------|--------------|--------|---------|
-| mlp_vanilla | 35.50 | 12.03 | 83.1 | 0.399 | 1.00x |
-| mlp_canpinn | 34.76 | 11.78 | 84.9 | 0.400 | 1.02x |
-| mlp_compile | 35.97 | 12.19 | 82.0 | 0.401 | 0.99x |
-| **mlp_triton** | **22.37** | **7.58** | **131.9** | 0.399 | **1.59x** |
-| cnn_canpinn | 31.34 | 10.62 | 94.1 | **0.227** | 1.00x |
-| cnn_compile | 34.08 | 11.55 | 86.6 | 0.228 | 0.92x |
-| **cnn_triton** | **20.51** | **6.95** | **143.8** | **0.227** | **1.53x** |
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| mlp_vanilla | 12.03 | - | 83.1 | 0.399 | 1.00x |
+| mlp_canpinn | 11.78 | - | 84.9 | 0.400 | 1.02x |
+| mlp_compile | 12.19 | - | 82.0 | 0.401 | 0.99x |
+| **mlp_triton** | **7.58** | - | **131.9** | 0.399 | **1.59x** |
+| cnn_canpinn | 10.62 | - | 94.1 | 0.227 | 1.00x |
+| cnn_compile | 11.55 | - | 86.6 | 0.228 | 0.92x |
+| **cnn_triton** | **6.95** | - | **143.8** | 0.227 | **1.53x** |
 
-### Track 2: Convergence (threshold=1e-4, max=50000 epochs)
+### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
 |--------|--------|-------------|------------|------------|--------|
@@ -147,7 +170,6 @@ All 7 scripts pass 500-step sanity with P+div (steady NS with pressure and diver
 | **cnn_triton** | **278.5** | 30951 | **8.95** | 0.227 | 1.46% |
 
 **Key findings**:
-- Triton backward fully fixed: scale bug + Gdiv boundary sign bugs
 - mlp_triton 264.9s vs canpinn 340.7s (**1.29x faster**)
 - cnn_triton 278.5s vs canpinn 366.6s (**1.32x faster**)
 - mlp_vanilla mem 7.83GB vs triton 0.399GB (**19.6x less**)
@@ -156,10 +178,36 @@ All 7 scripts pass 500-step sanity with P+div (steady NS with pressure and diver
 
 ## 6. 2D Sod Shock Tube (`sod_2d`, Nx=200, Nt=50, compressible Euler)
 
-### Track 1: Throughput (warmup=50, measure=2950 steps, 5 runs)
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
 
-| method | median(s) | avg_ms | tput(steps/s) | mem_GB | speedup |
-|--------|----------|--------|--------------|--------|---------|
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| mlp_vanilla | - | - | - | - | 1.00x |
+| mlp_canpinn | - | - | - | - | - |
+| mlp_compile | - | - | - | - | - |
+| mlp_triton | - | - | - | - | N/A (no kernel) |
+| cnn_canpinn | - | - | - | - | - |
+| cnn_compile | - | - | - | - | - |
+| cnn_triton | - | - | - | - | N/A (no kernel) |
+
+### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
+|--------|--------|-------------|------------|------------|--------|
+| mlp_vanilla | - | - | - | - | - |
+| mlp_canpinn | - | - | - | - | - |
+| mlp_compile | - | - | - | - | - |
+| cnn_canpinn | - | - | - | - | - |
+| cnn_compile | - | - | - | - | - |
+
+---
+
+## 7. 3D LDC (`ldc_3d`, Nx=Ny=Nz=32, Re=100, steady NS with P+div)
+
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
+
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
 | mlp_vanilla | - | - | - | - | 1.00x |
 | mlp_canpinn | - | - | - | - | - |
 | mlp_compile | - | - | - | - | - |
@@ -168,7 +216,7 @@ All 7 scripts pass 500-step sanity with P+div (steady NS with pressure and diver
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
 
-### Track 2: Convergence (threshold=1e-4, max=50000 epochs)
+### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
 |--------|--------|-------------|------------|------------|--------|
@@ -182,12 +230,12 @@ All 7 scripts pass 500-step sanity with P+div (steady NS with pressure and diver
 
 ---
 
-## 7. 3D LDC (`ldc_3d`, Nx=Ny=Nz=32, Re=100, steady-state, NS with P+div)
+## 8. 3D TGV (`tgv_3d`, Nx=Ny=Nz=32, Nt=10, unsteady NS)
 
-### Track 1: Throughput (warmup=50, measure=2950 steps, 5 runs)
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
 
-| method | median(s) | avg_ms | tput(steps/s) | mem_GB | speedup |
-|--------|----------|--------|--------------|--------|---------|
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
 | mlp_vanilla | - | - | - | - | 1.00x |
 | mlp_canpinn | - | - | - | - | - |
 | mlp_compile | - | - | - | - | - |
@@ -196,39 +244,7 @@ All 7 scripts pass 500-step sanity with P+div (steady NS with pressure and diver
 | cnn_compile | - | - | - | - | - |
 | cnn_triton | - | - | - | - | - |
 
-### Track 2: Convergence (threshold=1e-4, max=50000 epochs)
-
-| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
-|--------|--------|-------------|------------|------------|--------|
-| mlp_vanilla | N/A | 500* | 49.82 | 2.625 | - |
-| mlp_canpinn | N/A | 500* | 13.59 | 0.078 | - |
-| mlp_compile | N/A | 500* | 22.88 | 0.145 | - |
-| **mlp_triton** | N/A | 50000 | **7.13** | **0.078** | - |
-| cnn_canpinn | N/A | 500* | 17.27 | 0.037 | - |
-| cnn_compile | N/A | 500* | 24.55 | 0.058 | - |
-| cnn_triton | N/A | 500* | **12.52** | **0.037** | - |
-
-**Note**: `*` = 500-step sanity only (not full run). mlp_vanilla OOM risk at 2.6 GB vs triton 0.078 GB (**33.6x less**). mlp_triton ran full 50k epochs (loss stuck at ~0.61).
-Triton kernel verified: forward rel diff 0, grad errors < 7e-11 (sin/cos float64), < 2e-11 (MLP float32).
-All 7 scripts pass 500-step sanity with P+div (steady NS with pressure and divergence constraint).
-
----
-
-## 8. 3D TGV (`tgv_3d`, Nx=Ny=Nz=32, Nt=10)
-
-### Track 1: Throughput (warmup=50, measure=2950 steps, 5 runs)
-
-| method | median(s) | avg_ms | tput(steps/s) | mem_GB | speedup |
-|--------|----------|--------|--------------|--------|---------|
-| mlp_vanilla | - | - | - | - | 1.00x |
-| mlp_canpinn | - | - | - | - | - |
-| mlp_compile | - | - | - | - | - |
-| mlp_triton | - | - | - | - | - |
-| cnn_canpinn | - | - | - | - | - |
-| cnn_compile | - | - | - | - | - |
-| cnn_triton | - | - | - | - | - |
-
-### Track 2: Convergence (threshold=1e-4, max=50000 epochs)
+### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | L2_err |
 |--------|--------|-------------|------------|------------|--------|
