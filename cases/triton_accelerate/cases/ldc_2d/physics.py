@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 CASE_NAME = "ldc_2d"
 Re = 100.0
 nu = 1.0 / Re
-Nx, Ny = 64, 64
+Nx, Ny = 128, 128
 GRID_SHAPE = (Nx, Ny)
 
 GHIA_Y = [0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813, 0.4531,

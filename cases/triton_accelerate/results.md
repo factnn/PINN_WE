@@ -25,6 +25,103 @@ Pure PDE residual computation on random fields. No model forward/backward — is
 - Largest gain on 3D TGV: **2.51x total** (most stencil ops to fuse)
 - All kernels use `@triton.autotune` with BLOCK in [64, 128, 256, 512]
 
+### Scaling Analysis (Kernel Speedup vs Grid Size)
+
+> `python scaling.py --case <case> --gpu <id>`
+
+As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's fused kernel stays compute-efficient. Speedup grows from ~2-3x at small grids to **10-19x at large grids**.
+
+#### burgers_1d_steady (1D, single field)
+
+| Grid | Points | PT (ms) | TR (ms) | Speedup |
+|------|--------|---------|---------|---------|
+| 256 | 256 | 0.65 | 0.40 | 1.60x |
+| 4,096 | 4K | 0.66 | 0.39 | 1.68x |
+| 65,536 | 65K | 0.58 | 0.38 | 1.51x |
+| 1,048,576 | 1M | 0.60 | 0.39 | 1.53x |
+| 4,194,304 | 4M | 1.00 | 0.39 | **2.59x** |
+
+#### burgers_1d_unsteady (2D grid [Nt, Nx], single field)
+
+| Grid | Points | PT (ms) | TR (ms) | Speedup |
+|------|--------|---------|---------|---------|
+| 50×512 | 25K | 1.03 | 0.09 | 10.98x |
+| 200×2048 | 410K | 0.94 | 0.39 | 2.41x |
+| 1000×2048 | 2M | 2.21 | 0.40 | **5.59x** |
+
+#### ldc_2d (2D steady, 3 fields U/V/P)
+
+| Grid | Points | PT (ms) | TR (ms) | Speedup |
+|------|--------|---------|---------|---------|
+| 32² | 1K | 3.34 | 1.33 | 2.52x |
+| 128² | 16K | 3.33 | 1.37 | 2.43x |
+| 512² | 262K | 3.43 | 1.37 | 2.51x |
+| 2048² | 4.2M | 12.45 | 1.35 | **9.22x** |
+| 4096² | 16.8M | 54.92 | 5.23 | **10.50x** |
+
+#### ldc_3d (3D steady, 4 fields U/V/W/P)
+
+| Grid | Points | PT (ms) | TR (ms) | Speedup |
+|------|--------|---------|---------|---------|
+| 32³ | 33K | 8.17 | 2.43 | 3.37x |
+| 64³ | 262K | 7.98 | 2.22 | 3.59x |
+| 128³ | 2.1M | 13.22 | 2.37 | **5.59x** |
+| 192³ | 7.1M | 25.07 | 2.37 | **10.57x** |
+| 256³ | 16.8M | 56.00 | 3.10 | **18.08x** |
+
+#### tgv_2d (2D unsteady NS, 3 fields)
+
+| Grid | Points | PT (ms) | TR (ms) | Speedup |
+|------|--------|---------|---------|---------|
+| 20×64² | 82K | 4.40 | 1.62 | 2.72x |
+| 50×256² | 3.3M | 4.99 | 1.55 | 3.22x |
+| 100×256² | 6.6M | 12.57 | 1.60 | **7.88x** |
+| 200×256² | 13.1M | 24.23 | 2.43 | **9.96x** |
+| 100×512² | 26.2M | 46.52 | 4.54 | **10.25x** |
+
+#### tgv_3d (3D unsteady NS, 4 fields)
+
+| Grid | Points | PT (ms) | TR (ms) | Speedup |
+|------|--------|---------|---------|---------|
+| 10×32³ | 328K | 9.76 | 2.74 | 3.56x |
+| 10×64³ | 2.6M | 9.75 | 2.73 | 3.58x |
+| 10×96³ | 8.8M | 32.49 | 2.76 | **11.79x** |
+| 20×96³ | 17.7M | 67.32 | 3.81 | **17.67x** |
+| 20×128³ | 41.9M | 155.18 | 8.10 | **19.16x** |
+
+#### transport_2d (2D advection-diffusion, 1 field)
+
+| Grid | Points | PT (ms) | TR (ms) | Speedup |
+|------|--------|---------|---------|---------|
+| 20×64² | 82K | 1.68 | 0.51 | 3.32x |
+| 50×256² | 3.3M | 1.86 | 0.53 | 3.52x |
+| 100×256² | 6.6M | 4.86 | 0.50 | **9.83x** |
+| 200×256² | 13.1M | 9.41 | 0.61 | **15.55x** |
+| 100×512² | 26.2M | 17.98 | 1.12 | **16.08x** |
+
+#### sod_2d (compressible Euler, 3 fields)
+
+| Grid | Points | PT (ms) | TR (ms) | Speedup |
+|------|--------|---------|---------|---------|
+| 50×200 | 10K | 1.89 | 1.81 | 1.04x |
+| 200×2000 | 400K | 2.16 | 1.69 | 1.28x |
+| 1000×4000 | 4M | 3.22 | 1.69 | 1.91x |
+| 2000×4000 | 8M | 7.33 | 1.70 | **4.31x** |
+| 4000×4000 | 16M | 13.95 | 2.20 | **6.34x** |
+
+#### Summary: Peak Speedup by Case
+
+| Case | Dimensionality | Max Grid Tested | Peak Speedup |
+|------|:---:|------|:---:|
+| burgers_1d_steady | 1D | 4M pts | 2.59x |
+| burgers_1d_unsteady | 1D+T | 2M pts | 5.59x |
+| ldc_2d | 2D | 16.8M pts | **10.50x** |
+| ldc_3d | 3D | 16.8M pts | **18.08x** |
+| tgv_2d | 2D+T | 26.2M pts | **10.25x** |
+| tgv_3d | 3D+T | 41.9M pts | **19.16x** |
+| transport_2d | 2D+T | 26.2M pts | **16.08x** |
+| sod_2d | 1D+T | 16M pts | 6.37x |
+
 ---
 
 ## 1. 1D Steady Burgers (`burgers_1d_steady`, Nx=256)

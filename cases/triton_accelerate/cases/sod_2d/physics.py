@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 # ─── Constants ───────────────────────────────────────────────────────────────
 CASE_NAME = "sod_2d"
 gamma = 1.4
-Nx, Nt = 200, 50
+Nx, Nt = 1000, 200
 T_final = 0.2
 GRID_SHAPE = (Nt, Nx)
 
