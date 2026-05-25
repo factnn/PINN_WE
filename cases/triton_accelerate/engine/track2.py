@@ -82,8 +82,8 @@ def run_track2(physics, ctx, backend, device="cuda",
             if t2s is None and lv < threshold:
                 t2s = wall
                 t2s_ep = ep
-                print(f"  T2S={wall:.1f}s at ep {ep}")
-                break
+                print(f"  T2S={wall:.1f}s at ep {ep} (training continues)")
+                # Note: do NOT break — run all epochs, analyze CSV later
             if ep % 5000 == 0:
                 print(f"  ep {ep:6d} loss={lv:.3e} t={wall:.1f}s")
 
