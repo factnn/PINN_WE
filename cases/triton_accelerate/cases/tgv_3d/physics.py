@@ -19,6 +19,8 @@ CASE_NAME = "tgv_3d"
 nu = 0.01
 Nt, Nx, Ny, Nz = 10, 32, 32, 32
 GRID_SHAPE = (Nt, Nx, Ny, Nz)
+MLP_THRESHOLD = 5e-3
+CNN_THRESHOLD = 5e-2
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────

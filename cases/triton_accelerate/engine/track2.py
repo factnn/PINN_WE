@@ -12,7 +12,7 @@ from .utils import make_model, get_loss_fn
 
 
 def run_track2(physics, ctx, backend, device="cuda",
-               max_epochs=200000, lr=1e-3, threshold=1e-5, runs=1,
+               max_epochs=200000, lr=1e-3, threshold=None, runs=1,
                out_dir=None):
     """Run convergence training.
 
@@ -21,12 +21,23 @@ def run_track2(physics, ctx, backend, device="cuda",
         ctx: context dict
         backend: backend name string
         device: "cuda"
-        max_epochs, lr, threshold, runs: training params
+        max_epochs, lr, runs: training params
+        threshold: loss threshold for T2S. If None, auto-select from physics module:
+                   physics.CNN_THRESHOLD for cnn_* backends,
+                   physics.MLP_THRESHOLD for mlp_* backends,
+                   fallback to 1e-5.
         out_dir: output directory for checkpoints/plots
 
     Returns:
         dict with aggregated results
     """
+    # Auto-select threshold based on backend type
+    if threshold is None:
+        if "cnn" in backend:
+            threshold = getattr(physics, 'CNN_THRESHOLD', 1e-5)
+        else:
+            threshold = getattr(physics, 'MLP_THRESHOLD', 1e-5)
+
     if out_dir is None:
         out_dir = Path(__file__).parent.parent / "output" / physics.CASE_NAME
     out_dir = Path(out_dir)

@@ -18,6 +18,8 @@ CASE_NAME = "burgers_1d_steady"
 nu = 0.1 / np.pi  # larger nu = smoother shock, easier to learn
 Nx = 256
 GRID_SHAPE = (Nx,)
+MLP_THRESHOLD = 1e-5
+CNN_THRESHOLD = 1e-3
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────

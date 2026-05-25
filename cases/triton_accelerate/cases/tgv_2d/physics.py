@@ -17,6 +17,8 @@ CASE_NAME = "tgv_2d"
 nu = 0.01
 Nx, Ny, Nt = 64, 64, 20
 GRID_SHAPE = (Nt, Nx, Ny)
+MLP_THRESHOLD = 1e-4
+CNN_THRESHOLD = 5e-4
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────

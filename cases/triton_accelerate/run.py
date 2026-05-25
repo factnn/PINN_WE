@@ -65,7 +65,7 @@ def run_case(case_name, backends, tracks, args):
     ctx = physics.make_context(device)
 
     max_epochs = args.max_epochs or 200000
-    threshold = args.threshold or 1e-5
+    threshold = args.threshold  # None = auto from physics.py
 
     if "0" in tracks:
         from engine.track0 import run_track0

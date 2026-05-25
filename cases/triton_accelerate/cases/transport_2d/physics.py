@@ -21,6 +21,8 @@ u0 = 1.0
 v0 = 1.0
 Nx, Ny, Nt = 64, 64, 20
 GRID_SHAPE = (Nt, Nx, Ny)
+MLP_THRESHOLD = 1e-3
+CNN_THRESHOLD = 1e-3
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────

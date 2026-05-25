@@ -20,6 +20,8 @@ gamma = 1.4
 Nx, Nt = 1000, 200
 T_final = 0.2
 GRID_SHAPE = (Nt, Nx)
+MLP_THRESHOLD = 5e-2
+CNN_THRESHOLD = 5e-2
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────

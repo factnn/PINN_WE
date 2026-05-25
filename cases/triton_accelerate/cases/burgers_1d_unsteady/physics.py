@@ -19,6 +19,8 @@ CASE_NAME = "burgers_1d_unsteady"
 nu = 0.01 / np.pi
 Nx, Nt = 1024, 100
 GRID_SHAPE = (Nt, Nx)
+MLP_THRESHOLD = 1e-3
+CNN_THRESHOLD = 5e-4
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────

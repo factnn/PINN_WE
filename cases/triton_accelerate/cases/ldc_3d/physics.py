@@ -19,6 +19,8 @@ Re = 100.0
 nu = 1.0 / Re
 Nx, Ny, Nz = 48, 48, 48
 GRID_SHAPE = (Nx, Ny, Nz)
+MLP_THRESHOLD = 1e-1
+CNN_THRESHOLD = 5e-1
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────
