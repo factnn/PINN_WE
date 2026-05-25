@@ -9,6 +9,13 @@ Usage:
 import sys, os, argparse, importlib
 from pathlib import Path
 
+# MUST set CUDA_VISIBLE_DEVICES before importing torch!
+# Parse --gpu early from sys.argv
+for i, arg in enumerate(sys.argv):
+    if arg == '--gpu' and i + 1 < len(sys.argv):
+        os.environ["CUDA_VISIBLE_DEVICES"] = sys.argv[i + 1]
+        break
+
 # Ensure triton_accelerate/ is on path
 ROOT = Path(__file__).parent
 sys.path.insert(0, str(ROOT))
@@ -80,7 +87,6 @@ def run_case(case_name, backends, tracks, args):
 
 def main():
     args = parse_args()
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
 
     # Resolve cases
     cases = ALL_CASES if args.case == "all" else [args.case]
