@@ -96,7 +96,7 @@ def run_track2(physics, ctx, backend, device="cuda",
     bps = physics.bytes_per_step()
     mem_bw_gbs = bps / (avg_step_ms * 1e-3) / 1e9
 
-    # Save metrics
+    # Save metrics (npy)
     metrics = dict(
         history=history, elapsed=elapsed, mem_gb=mem_gb,
         t2s=t2s, t2s_ep=t2s_ep, l2=l2, final_loss=final_loss,
@@ -104,6 +104,18 @@ def run_track2(physics, ctx, backend, device="cuda",
         all_elapsed=all_elapsed, all_t2s=all_t2s,
     )
     np.save(out_dir / f"meta_{backend}.npy", metrics)
+
+    # Save training history as CSV (timestamped)
+    import csv
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_path = out_dir / f"history_{backend}_{timestamp}.csv"
+    with open(csv_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['epoch', 'wall_time_s', 'loss'])
+        for wall, ep, lv in history:
+            writer.writerow([ep, f"{wall:.3f}", f"{lv:.6e}"])
+    print(f"  History saved: {csv_path.name}")
 
     # Summary
     print(f"\n[{backend}] === Summary ===")
