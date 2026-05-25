@@ -75,7 +75,7 @@ def _sod_exact_riemann(x, t, gamma=1.4):
 
 
 def plot_all(physics, ctx, models, out_dir):
-    """Generate all plots for sod_2d."""
+    """Generate all plots for sod_1d."""
     out_dir = Path(out_dir)
     x_np = ctx["X"][0].cpu().numpy()
     t_np = ctx["T"][:, 0].cpu().numpy()
@@ -197,5 +197,5 @@ def plot_from_checkpoints(physics, out_dir, model_dir=None):
 
 if __name__ == "__main__":
     import sys; sys.path.insert(0, str(Path(__file__).parent.parent))
-    import cases.sod_2d.physics as physics
-    plot_from_checkpoints(physics, "output/sod_2d/figures")
+    import cases.sod_1d.physics as physics
+    plot_from_checkpoints(physics, "output/sod_1d/figures")

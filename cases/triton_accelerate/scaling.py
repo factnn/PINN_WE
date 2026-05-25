@@ -38,7 +38,7 @@ SCALING_GRIDS = {
         (10, 32), (20, 64), (20, 128), (50, 128), (50, 256),
         (100, 256), (200, 256), (100, 512), (200, 512),
     ],
-    "sod_2d": [
+    "sod_1d": [
         (50, 200), (100, 1000), (200, 2000), (500, 2000),
         (1000, 4000), (2000, 4000), (4000, 4000), (2000, 8000),
     ],
@@ -82,7 +82,7 @@ def make_random_fields(case_name, size, device="cuda", dtype=torch.float32):
         W = torch.randn(Nt, N, N, N, device=device, dtype=dtype).requires_grad_(True)
         P = torch.randn(Nt, N, N, N, device=device, dtype=dtype).requires_grad_(True)
         return U, V, W, P
-    elif case_name == "sod_2d":
+    elif case_name == "sod_1d":
         Nt, Nx = size
         R = torch.randn(Nt, Nx, device=device, dtype=dtype).abs().requires_grad_(True)
         M = torch.randn(Nt, Nx, device=device, dtype=dtype).requires_grad_(True)
@@ -198,12 +198,12 @@ def get_kernel_fns(case_name):
             return (dx, dy, dt)
         return pt_fn, tr_fn, spacing_fn
 
-    elif case_name == "sod_2d":
+    elif case_name == "sod_1d":
         from kernels.stencil_2d_compressible import compressible_sod_residual_triton
         gamma = 1.4
         def pt_fn(fields, spacings):
             R, M, E = fields; dx, dt = spacings
-            from cases.sod_2d.physics import _euler_residual_fd
+            from cases.sod_1d.physics import _euler_residual_fd
             return _euler_residual_fd(R, M, E, dx, dt)
         def tr_fn(fields, spacings):
             R, M, E = fields; dx, dt = spacings

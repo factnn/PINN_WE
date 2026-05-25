@@ -26,7 +26,7 @@ ALL_CASES = [
     "burgers_1d_steady", "burgers_1d_unsteady",
     "ldc_2d", "ldc_3d",
     "tgv_2d", "tgv_3d",
-    "transport_2d", "sod_2d",
+    "transport_2d", "sod_1d",
 ]
 
 

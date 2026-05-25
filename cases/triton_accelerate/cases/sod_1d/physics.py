@@ -15,7 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 # ─── Constants ───────────────────────────────────────────────────────────────
-CASE_NAME = "sod_2d"
+CASE_NAME = "sod_1d"
 gamma = 1.4
 Nx, Nt = 1000, 200
 T_final = 0.2
@@ -173,14 +173,141 @@ def loss_triton(model, ctx):
            10 * _ic_loss(rho, rhou, E, ctx["X"]) + _bc_loss(rho, rhou, E)
 
 
+# ─── Riemann Exact Solver ─────────────────────────────────────────────────────
+def _riemann_exact(x_arr, t, rhoL=1.0, uL=0.0, pL=1.0,
+                   rhoR=0.125, uR=0.0, pR=0.1, x0=0.5, gam=1.4):
+    """Exact Riemann solution for Sod shock tube at time t.
+
+    Returns rho, u, p arrays on x_arr grid.
+    Standard algorithm: find p_star by Newton iteration, then sample waves.
+    """
+    if t <= 0:
+        rho = np.where(x_arr < x0, rhoL, rhoR)
+        u = np.where(x_arr < x0, uL, uR)
+        p = np.where(x_arr < x0, pL, pR)
+        return rho, u, p
+
+    g = gam
+    g1 = (g - 1) / (2 * g)
+    g2 = (g + 1) / (2 * g)
+    g3 = 2 * g / (g - 1)
+    g4 = 2 / (g - 1)
+    g5 = 2 / (g + 1)
+    g6 = (g - 1) / (g + 1)
+    g7 = (g - 1) / 2
+
+    aL = np.sqrt(g * pL / rhoL)
+    aR = np.sqrt(g * pR / rhoR)
+
+    # Newton iteration for p_star
+    def f(p, rho_k, p_k, a_k):
+        if p > p_k:  # shock
+            A = g5 / rho_k
+            B = g6 * p_k
+            return (p - p_k) * np.sqrt(A / (p + B))
+        else:  # rarefaction
+            return g4 * a_k * ((p / p_k)**g1 - 1)
+
+    def df(p, rho_k, p_k, a_k):
+        if p > p_k:
+            A = g5 / rho_k
+            B = g6 * p_k
+            sq = np.sqrt(A / (p + B))
+            return sq * (1 - (p - p_k) / (2 * (p + B)))
+        else:
+            return (1 / (rho_k * a_k)) * (p / p_k)**(-(g + 1) / (2 * g))
+
+    # Initial guess (Two-Rarefaction approximation)
+    p_star = ((aL + aR - g7 * (uR - uL)) /
+              (aL / pL**g1 + aR / pR**g1))**(1 / g1)
+
+    for _ in range(50):
+        fL = f(p_star, rhoL, pL, aL)
+        fR = f(p_star, rhoR, pR, aR)
+        fp = fL + fR + (uR - uL)
+        dfp = df(p_star, rhoL, pL, aL) + df(p_star, rhoR, pR, aR)
+        dp = -fp / dfp
+        p_star = max(p_star + dp, 1e-15)
+        if abs(dp) < 1e-12 * p_star:
+            break
+
+    u_star = 0.5 * (uL + uR) + 0.5 * (f(p_star, rhoR, pR, aR) - f(p_star, rhoL, pL, aL))
+
+    # Sample solution
+    rho = np.empty_like(x_arr)
+    u = np.empty_like(x_arr)
+    p = np.empty_like(x_arr)
+
+    S = (x_arr - x0) / t  # similarity variable
+
+    for i in range(len(x_arr)):
+        s = S[i]
+        if s < u_star:  # Left of contact
+            if p_star <= pL:  # Left rarefaction
+                aL_star = aL * (p_star / pL)**g1
+                sHL = uL - aL
+                sTL = u_star - aL_star
+                if s <= sHL:
+                    rho[i], u[i], p[i] = rhoL, uL, pL
+                elif s >= sTL:
+                    rho[i] = rhoL * (p_star / pL)**(1/g)
+                    u[i] = u_star
+                    p[i] = p_star
+                else:
+                    u[i] = g5 * (aL + g7 * uL + s)
+                    a = g5 * (aL - g7 * (uL - s))
+                    rho[i] = rhoL * (a / aL)**g4
+                    p[i] = pL * (a / aL)**g3
+            else:  # Left shock
+                sL = uL - aL * np.sqrt(g2 * p_star / pL + g1)
+                if s <= sL:
+                    rho[i], u[i], p[i] = rhoL, uL, pL
+                else:
+                    rho[i] = rhoL * (p_star/pL + g6) / (g6 * p_star/pL + 1)
+                    u[i] = u_star
+                    p[i] = p_star
+        else:  # Right of contact
+            if p_star <= pR:  # Right rarefaction
+                aR_star = aR * (p_star / pR)**g1
+                sHR = uR + aR
+                sTR = u_star + aR_star
+                if s >= sHR:
+                    rho[i], u[i], p[i] = rhoR, uR, pR
+                elif s <= sTR:
+                    rho[i] = rhoR * (p_star / pR)**(1/g)
+                    u[i] = u_star
+                    p[i] = p_star
+                else:
+                    u[i] = g5 * (-aR + g7 * uR + s)
+                    a = g5 * (aR - g7 * (s - uR))
+                    rho[i] = rhoR * (a / aR)**g4
+                    p[i] = pR * (a / aR)**g3
+            else:  # Right shock
+                sR = uR + aR * np.sqrt(g2 * p_star / pR + g1)
+                if s >= sR:
+                    rho[i], u[i], p[i] = rhoR, uR, pR
+                else:
+                    rho[i] = rhoR * (p_star/pR + g6) / (g6 * p_star/pR + 1)
+                    u[i] = u_star
+                    p[i] = p_star
+
+    return rho, u, p
+
+
 # ─── Evaluation ──────────────────────────────────────────────────────────────
 def compute_l2_error(model, ctx):
-    """L2 error of IC reproduction (no closed-form for t>0)."""
+    """L2 error vs exact Riemann solution at final time."""
     with torch.no_grad():
-        rho, rhou, E = infer(model, ctx)
-    rho_ic, rhou_ic, E_ic = _sod_ic(ctx["X"][0])
-    err = torch.sqrt(((rho[0]-rho_ic)**2 + (rhou[0]-rhou_ic)**2 + (E[0]-E_ic)**2).mean())
-    ref = torch.sqrt((rho_ic**2 + rhou_ic**2 + E_ic**2).mean())
+        rho_pred, rhou_pred, E_pred = infer(model, ctx)
+    rho_np = rho_pred[-1].cpu().numpy()
+    rhou_np = rhou_pred[-1].cpu().numpy()
+    E_np = E_pred[-1].cpu().numpy()
+    x_np = ctx["X"][0].cpu().numpy()
+    u_np = rhou_np / (rho_np + 1e-10)
+
+    rho_ex, u_ex, p_ex = _riemann_exact(x_np, T_final)
+    err = np.sqrt(np.mean((rho_np - rho_ex)**2 + (u_np - u_ex)**2))
+    ref = np.sqrt(np.mean(rho_ex**2 + u_ex**2))
     return float(err / (ref + 1e-12))
 
 
