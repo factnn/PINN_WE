@@ -180,3 +180,80 @@ def plot_pointwise_error_1d(x, errors, out_dir, title="Pointwise Error"):
 
     plt.tight_layout()
     save_fig(fig, out_dir, "pointwise_error")
+
+
+# ─── Zero Accuracy Loss Comparison (FD methods only) ─────────────────────────
+# canpinn/compile/triton should overlap perfectly (same FD formula)
+
+FD_MLP_BACKENDS = ['mlp_canpinn', 'mlp_compile', 'mlp_triton']
+FD_CNN_BACKENDS = ['cnn_canpinn', 'cnn_compile', 'cnn_triton']
+
+
+def plot_accuracy_preservation_1d(x, predictions, exact, out_dir, title="Zero Accuracy Loss"):
+    """Show that canpinn/compile/triton produce identical results.
+
+    Args:
+        x: spatial coordinates
+        predictions: dict[backend] -> 1D prediction array
+        exact: 1D exact solution array
+        out_dir: output directory
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+
+    # Top-left: MLP FD methods overlaid
+    ax = axes[0, 0]
+    ax.plot(x, exact, 'k--', lw=2.5, label='Exact', zorder=10)
+    for backend in FD_MLP_BACKENDS:
+        if backend in predictions:
+            color = BACKEND_COLORS[backend]
+            ls = BACKEND_LINESTYLES[backend]
+            label = BACKEND_LABELS[backend]
+            ax.plot(x, predictions[backend], color=color, ls=ls, lw=2, label=label)
+    ax.set_xlabel('x'); ax.set_ylabel('u')
+    ax.set_title('MLP: canpinn vs compile vs Triton')
+    ax.legend(fontsize=9); ax.grid(True, alpha=0.3)
+
+    # Top-right: CNN FD methods overlaid
+    ax = axes[0, 1]
+    ax.plot(x, exact, 'k--', lw=2.5, label='Exact', zorder=10)
+    for backend in FD_CNN_BACKENDS:
+        if backend in predictions:
+            color = BACKEND_COLORS[backend]
+            ls = BACKEND_LINESTYLES[backend]
+            label = BACKEND_LABELS[backend]
+            ax.plot(x, predictions[backend], color=color, ls=ls, lw=2, label=label)
+    ax.set_xlabel('x'); ax.set_ylabel('u')
+    ax.set_title('CNN: canpinn vs compile vs Triton')
+    ax.legend(fontsize=9); ax.grid(True, alpha=0.3)
+
+    # Bottom-left: MLP pairwise difference (triton - canpinn)
+    ax = axes[1, 0]
+    if 'mlp_triton' in predictions and 'mlp_canpinn' in predictions:
+        diff_tc = predictions['mlp_triton'] - predictions['mlp_canpinn']
+        ax.plot(x, diff_tc, 'g-', lw=1.5, label='Triton - CAN-PINN')
+        ax.axhline(y=0, color='k', ls=':', alpha=0.5)
+        max_diff = np.abs(diff_tc).max()
+        ax.set_title(f'MLP: Triton vs CAN-PINN diff (max={max_diff:.2e})')
+    if 'mlp_compile' in predictions and 'mlp_canpinn' in predictions:
+        diff_cc = predictions['mlp_compile'] - predictions['mlp_canpinn']
+        ax.plot(x, diff_cc, 'm:', lw=1.5, label='Compile - CAN-PINN')
+    ax.set_xlabel('x'); ax.set_ylabel('u_A - u_B')
+    ax.legend(fontsize=9); ax.grid(True, alpha=0.3)
+
+    # Bottom-right: CNN pairwise difference
+    ax = axes[1, 1]
+    if 'cnn_triton' in predictions and 'cnn_canpinn' in predictions:
+        diff_tc = predictions['cnn_triton'] - predictions['cnn_canpinn']
+        ax.plot(x, diff_tc, 'c-', lw=1.5, label='Triton - CAN-PINN')
+        ax.axhline(y=0, color='k', ls=':', alpha=0.5)
+        max_diff = np.abs(diff_tc).max()
+        ax.set_title(f'CNN: Triton vs CAN-PINN diff (max={max_diff:.2e})')
+    if 'cnn_compile' in predictions and 'cnn_canpinn' in predictions:
+        diff_cc = predictions['cnn_compile'] - predictions['cnn_canpinn']
+        ax.plot(x, diff_cc, color='#8c564b', ls=':', lw=1.5, label='Compile - CAN-PINN')
+    ax.set_xlabel('x'); ax.set_ylabel('u_A - u_B')
+    ax.legend(fontsize=9); ax.grid(True, alpha=0.3)
+
+    plt.suptitle(f'{title} — FD Methods Produce Identical Results', fontsize=14)
+    plt.tight_layout()
+    save_fig(fig, out_dir, "accuracy_preservation")

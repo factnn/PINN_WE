@@ -15,7 +15,8 @@ from pathlib import Path
 
 from plots import (
     BACKEND_COLORS, BACKEND_LABELS, BACKEND_LINESTYLES,
-    ALL_BACKENDS, MLP_BACKENDS, CNN_BACKENDS, save_fig
+    ALL_BACKENDS, MLP_BACKENDS, CNN_BACKENDS, save_fig,
+    plot_accuracy_preservation_1d
 )
 
 
@@ -104,6 +105,10 @@ def plot_all(physics, ctx, models, out_dir):
 
     plt.tight_layout()
     save_fig(fig, out_dir, "pointwise_error")
+
+    # --- Zero accuracy loss: FD methods should overlap ---
+    plot_accuracy_preservation_1d(x_np, predictions, u_exact, out_dir,
+                                   title="1D Steady Burgers")
 
 
 def plot_from_checkpoints(physics, out_dir, model_dir=None):

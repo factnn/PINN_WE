@@ -48,6 +48,11 @@ def run_track2(physics, ctx, backend, device="cuda",
     all_t2s = []
 
     for run_i in range(runs):
+        # Fixed seed for reproducibility: same init across all backends
+        seed = 42 + run_i
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
         model = make_model(physics, backend, device)
         opt = torch.optim.Adam(model.parameters(), lr=lr)
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max_epochs, eta_min=1e-5)
