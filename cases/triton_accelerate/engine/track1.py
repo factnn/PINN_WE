@@ -40,6 +40,10 @@ def run_track1(physics, ctx, backends=None, device="cuda", gpu=0):
         all_mem = []
 
         for run_i in range(RUNS):
+            # Fixed seed for reproducibility
+            torch.manual_seed(42 + run_i)
+            torch.cuda.manual_seed_all(42 + run_i)
+
             model = make_model(physics, backend, device)
             opt = torch.optim.Adam(model.parameters(), lr=1e-3)
 
