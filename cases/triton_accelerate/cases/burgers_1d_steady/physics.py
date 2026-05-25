@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 # ─── Constants ───────────────────────────────────────────────────────────────
 CASE_NAME = "burgers_1d_steady"
-nu = 0.01 / np.pi
+nu = 0.1 / np.pi  # larger nu = smoother shock, easier to learn
 Nx = 256
 GRID_SHAPE = (Nx,)
 
