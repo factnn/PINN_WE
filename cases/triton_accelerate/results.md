@@ -399,7 +399,9 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 - mlp_vanilla (autograd) achieves best MLP L2 (1.73%); cnn_triton best overall (2.12%)
 ---
 
-## 7. 3D LDC (`ldc_3d`, Nx=Ny=Nz=64, Re=100, steady NS with P+div)
+## 7. 3D LDC (`ldc_3d`, Nx=Ny=Nz=48, Re=100, steady NS with P+div)
+
+> **Note**: mlp_vanilla uses 17.6GB (Track 1) and is extremely slow (173ms/step). Track 2 skips vanilla.
 
 ### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
 
@@ -422,11 +424,26 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 ### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
 
-> Track 2 failed due to disk full. Only Track 1 results available.
+**MLP** (baseline: mlp_canpinn, vanilla skipped — too slow)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| mlp_canpinn | N/A | 200000 | 13.72 | 0.473 | 4.11e-1 | 0.019% |
+| mlp_compile | N/A | 200000 | 12.97 | 0.532 | 4.11e-1 | 0.017% |
+| **mlp_triton** | N/A | 200000 | **8.49** | **0.475** | 4.11e-1 | 0.025% |
+
+**CNN** (baseline: cnn_canpinn)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| cnn_canpinn | N/A | 200000 | 21.82 | 0.125 | 1.58 | 96.3% |
+| cnn_compile | N/A | 200000 | 21.91 | 0.127 | 1.58 | 96.3% |
+| cnn_triton | N/A | 200000 | 15.82 | 0.126 | 1.58 | 95.9% |
 
 **Key findings**:
-- Track 1: mlp_triton **27.45x** faster than vanilla, cnn_triton **1.11x** faster
-- Memory: vanilla 17.6GB vs triton 0.475GB (**37x less**)
+- Track 1: mlp_triton **27.45x** faster than vanilla, memory **37x less** (17.6GB → 0.475GB)
+- Track 2: MLP 三个方法 Final_Loss 完全一致（0.411）→ **零精度损失**
+- MLP L2 误差极小（0.02%），CNN 在 3D 48³ 没学好（模型容量不足）
 ---
 
 ## 8. 3D TGV (`tgv_3d`, Nx=Ny=Nz=32, Nt=10, unsteady NS)
