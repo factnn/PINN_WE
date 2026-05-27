@@ -22,7 +22,7 @@ CNN_THRESHOLD = 1e-3
 
 
 class MLP(nn.Module):
-    def __init__(self, width=64, depth=4):
+    def __init__(self, width=128, depth=5):
         super().__init__()
         layers = [nn.Linear(3, width), nn.Tanh()]
         for _ in range(depth - 1):
@@ -101,18 +101,18 @@ def loss_vanilla(model, ctx):
     u_yy = torch.autograd.grad(u_y.sum(), xyz_g, create_graph=True)[0][:, 1].reshape(Nx, Ny, Nz)
     u_zz = torch.autograd.grad(u_z.sum(), xyz_g, create_graph=True)[0][:, 2].reshape(Nx, Ny, Nz)
     res = u_xx + u_yy + u_zz - ctx["F"]
-    return (res**2).mean() + 10 * _bc_loss(u_g)
+    return (res**2).mean() + 100 * _bc_loss(u_g)
 
 
 def loss_canpinn(model, ctx):
     U = infer(model, ctx)
-    return _pde_residual_fd(U, ctx["F"], ctx["dx"], ctx["dy"], ctx["dz"]) + 10 * _bc_loss(U)
+    return _pde_residual_fd(U, ctx["F"], ctx["dx"], ctx["dy"], ctx["dz"]) + 100 * _bc_loss(U)
 
 
 def loss_triton(model, ctx):
     from kernels.stencil_3d_poisson import poisson3d_residual_triton
     U = infer(model, ctx)
-    return poisson3d_residual_triton(U, ctx["F"], ctx["dx"], ctx["dy"], ctx["dz"]) + 10 * _bc_loss(U)
+    return poisson3d_residual_triton(U, ctx["F"], ctx["dx"], ctx["dy"], ctx["dz"]) + 100 * _bc_loss(U)
 
 
 def _exact_u(X, Y, Z):

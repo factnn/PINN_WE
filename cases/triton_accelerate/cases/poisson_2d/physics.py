@@ -24,7 +24,7 @@ CNN_THRESHOLD = 1e-4
 
 # ─── Models ──────────────────────────────────────────────────────────────────
 class MLP(nn.Module):
-    def __init__(self, width=64, depth=4):
+    def __init__(self, width=128, depth=5):
         super().__init__()
         layers = [nn.Linear(2, width), nn.Tanh()]
         for _ in range(depth - 1):
@@ -106,20 +106,20 @@ def loss_vanilla(model, ctx):
     u_xx = torch.autograd.grad(u_x.sum(), xy_g, create_graph=True)[0][:, 0].reshape(Nx, Ny)
     u_yy = torch.autograd.grad(u_y.sum(), xy_g, create_graph=True)[0][:, 1].reshape(Nx, Ny)
     res = u_xx + u_yy - ctx["F"]
-    return (res**2).mean() + 10 * _bc_loss(u_g)
+    return (res**2).mean() + 100 * _bc_loss(u_g)
 
 
 def loss_canpinn(model, ctx):
     """PyTorch finite-difference."""
     U = infer(model, ctx)
-    return _pde_residual_fd(U, ctx["F"], ctx["dx"], ctx["dy"]) + 10 * _bc_loss(U)
+    return _pde_residual_fd(U, ctx["F"], ctx["dx"], ctx["dy"]) + 100 * _bc_loss(U)
 
 
 def loss_triton(model, ctx):
     """Triton fused kernel."""
     from kernels.stencil_2d_poisson import poisson2d_residual_triton
     U = infer(model, ctx)
-    return poisson2d_residual_triton(U, ctx["F"], ctx["dx"], ctx["dy"]) + 10 * _bc_loss(U)
+    return poisson2d_residual_triton(U, ctx["F"], ctx["dx"], ctx["dy"]) + 100 * _bc_loss(U)
 
 
 # ─── Evaluation ──────────────────────────────────────────────────────────────
