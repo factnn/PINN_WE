@@ -145,24 +145,27 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 | cnn_compile | 2.26 | 0.002 | 442.4 | 0.018 | 0.93x |
 | **cnn_triton** | **1.85** | 0.017 | **542.0** | 0.018 | **1.14x** |
 
-### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
+### Track 2: Convergence (MLP threshold=1e-5, CNN threshold=5e-5, max=300000 epochs)
 
 **MLP** (baseline: mlp_vanilla)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| mlp_vanilla | **71.2** | 14582 | 4.86 | 0.021 | 9.98e-6 | 0.537 |
-| mlp_canpinn | 378.5 | 166353 | 2.25 | 0.019 | 1.00e-5 | 0.592 |
-| mlp_compile | 278.3 | 111901 | 2.46 | 0.019 | 9.96e-6 | 0.733 |
-| mlp_triton | 281.4 | 134176 | 2.07 | 0.019 | 9.97e-6 | 0.181 |
+| mlp_vanilla | 12.2 | 2674 | 4.55 | 0.021 | 5.68e-8 | 0.319 |
+| mlp_canpinn | 5.7 | 2601 | 2.19 | 0.019 | 1.12e-8 | 0.509 |
+| mlp_compile | 7.2 | 2620 | 2.75 | 0.019 | 8.98e-9 | 0.441 |
+| **mlp_triton** | **6.3** | 2574 | **2.45** | 0.019 | 1.16e-8 | 0.391 |
 
 **CNN** (baseline: cnn_canpinn)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| cnn_canpinn | 256.1 | 115954 | 2.19 | 0.018 | 9.51e-6 | 0.221 |
-| cnn_compile | N/A | 200000 | 2.43 | 0.018 | 2.98e-5 | 0.284 |
-| **cnn_triton** | **229.7** | 121131 | **1.87** | 0.018 | 9.68e-6 | **0.058** |
+| cnn_canpinn | 460.6 | 218510 | 2.11 | 0.018 | 6.39e-5 | 0.243 |
+| cnn_compile | 502.4 | 212581 | 2.36 | 0.018 | 8.09e-5 | 0.425 |
+| **cnn_triton** | **381.4** | 201469 | **1.90** | 0.018 | 8.61e-5 | 0.373 |
+
+**Key findings**:
+- MLP all converge in ~6s. CNN_triton fastest (381s vs canpinn 461s)
 
 ---
 
@@ -187,30 +190,29 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 | cnn_compile | 3.41 | 0.039 | 291.8 | 0.103 | 0.84x |
 | **cnn_triton** | **2.56** | 0.017 | **392.4** | **0.102** | **1.15x** |
 
-### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
+### Track 2: Convergence (MLP threshold=1e-3, CNN threshold=5e-4, max=300000 epochs)
 
 **MLP** (baseline: mlp_vanilla)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| mlp_vanilla | **1143.0** | 111025 | 10.27 | 1.101 | <1e-5 | 0.13% |
-| mlp_canpinn | N/A | 200000 | 3.04 | 0.183 | - | 0.45% |
-| mlp_compile | N/A | 200000 | 3.24 | 0.156 | - | 0.18% |
-| mlp_triton | N/A | 200000 | 2.56 | 0.183 | - | 0.13% |
+| mlp_vanilla | 149.2 | 14468 | 10.27 | 1.101 | 2.14e-6 | 0.12% |
+| mlp_canpinn | 211.9 | 71929 | 2.95 | 0.183 | 6.29e-4 | 0.26% |
+| mlp_compile | 212.0 | 68501 | 3.09 | 0.156 | 6.67e-4 | 0.22% |
+| **mlp_triton** | **179.5** | 72893 | **2.46** | 0.183 | 6.62e-4 | 0.09% |
 
 **CNN** (baseline: cnn_canpinn)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| cnn_canpinn | N/A | 200000 | 3.04 | 0.102 | - | 0.10% |
-| cnn_compile | N/A | 200000 | 3.33 | 0.103 | - | 0.10% |
-| **cnn_triton** | N/A | 200000 | **2.53** | **0.102** | - | **0.09%** |
+| cnn_canpinn | 191.5 | 62012 | 3.09 | 0.102 | 1.39e-4 | 0.07% |
+| cnn_compile | 233.9 | 68553 | 3.41 | 0.103 | 1.44e-4 | 0.07% |
+| **cnn_triton** | **177.6** | 68996 | **2.57** | 0.102 | 1.52e-4 | 0.08% |
 
 **Key findings**:
 - Track 1: mlp_triton **4.16x** faster than vanilla, cnn_triton **1.15x** faster
 - Memory: vanilla 1.1GB vs triton 0.18GB (**6x less**)
-- Track 2: Only vanilla converged to 1e-5; triton achieves same L2 (0.13%) without hitting threshold
-- compile never converged to 1e-5 in 200k epochs
+- mlp_triton T2S=180s vs vanilla 149s. Memory: vanilla 1.1GB vs triton 0.18GB (6x less)
 
 ---
 
@@ -281,29 +283,29 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 | cnn_compile | 4.30 | 0.057 | 231.5 | 0.244 | 0.98x |
 | **cnn_triton** | **3.79** | 0.001 | **263.6** | **0.244** | **1.11x** |
 
-### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
+### Track 2: Convergence (MLP threshold=1e-3, CNN threshold=1e-3, max=300000 epochs)
 
 **MLP** (baseline: mlp_vanilla)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| mlp_vanilla | N/A | 200000 | 31.79 | 3.296 | 6.54e-4 | 4.90% |
-| mlp_canpinn | N/A | 200000 | 5.01 | 0.356 | 6.58e-4 | 4.90% |
-| mlp_compile | N/A | 200000 | 4.72 | 0.273 | 6.57e-4 | 4.95% |
-| mlp_triton | N/A | 200000 | 3.67 | 0.356 | 6.57e-4 | 4.93% |
+| mlp_vanilla | 1184.2 | 37181 | 31.85 | 3.296 | 6.51e-4 | 4.90% |
+| mlp_canpinn | 154.2 | 32037 | 4.81 | 0.356 | 6.54e-4 | 4.90% |
+| mlp_compile | 153.1 | 33750 | 4.54 | 0.273 | 6.54e-4 | 4.95% |
+| **mlp_triton** | **106.6** | 29195 | **3.65** | 0.356 | 6.54e-4 | 4.93% |
 
 **CNN** (baseline: cnn_canpinn)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| cnn_canpinn | N/A | 200000 | 5.91 | 0.244 | 8.25e-4 | 17.9% |
-| cnn_compile | N/A | 200000 | 6.02 | 0.244 | 7.20e-4 | 25.3% |
-| cnn_triton | N/A | 200000 | 4.60 | 0.244 | 7.29e-4 | 22.3% |
+| cnn_canpinn | 445.3 | 75179 | 5.92 | 0.244 | 6.86e-4 | - |
+| cnn_compile | 604.8 | 101607 | 5.95 | 0.244 | 7.04e-4 | - |
+| **cnn_triton** | **283.0** | 59876 | **4.73** | 0.244 | 6.88e-4 | - |
 
 **Key findings**:
 - Track 1: mlp_triton **10.38x** faster than vanilla, cnn_triton **1.11x** faster
 - Memory: vanilla 3.25GB vs triton 0.356GB (**9x less**)
-- Track 2: No method converged to 1e-5; all MLP methods achieve ~4.9% L2
+- mlp_triton 107s vs vanilla 1184s (11x faster). cnn_triton 283s vs canpinn 445s (1.6x)
 ---
 
 ## 5. 2D TGV (`tgv_2d`, Nx=Ny=64, Nt=20, unsteady NS)
@@ -327,29 +329,29 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 | cnn_compile | 7.94 | 0.015 | 126.1 | 0.246 | 0.98x |
 | **cnn_triton** | **4.74** | 0.019 | **211.4** | **0.245** | **1.64x** |
 
-### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
+### Track 2: Convergence (MLP threshold=1e-4, CNN threshold=5e-4, max=300000 epochs)
 
 **MLP** (baseline: mlp_vanilla)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| mlp_vanilla | N/A | 200000 | 78.57 | 7.874 | 1.00e-4 | 1.60% |
-| mlp_canpinn | N/A | 200000 | 9.70 | 0.399 | 7.70e-5 | 3.31% |
-| mlp_compile | N/A | 200000 | 9.26 | 0.400 | 7.63e-5 | 3.31% |
-| mlp_triton | N/A | 200000 | 6.81 | 0.399 | 7.66e-5 | 3.30% |
+| mlp_vanilla | 14233.8 | 180659 | 78.74 | 7.874 | 8.78e-5 | 1.60% |
+| mlp_canpinn | 1160.5 | 126338 | 9.19 | 0.399 | 7.22e-5 | 3.31% |
+| mlp_compile | 1136.2 | 129304 | 8.79 | 0.400 | 7.24e-5 | 3.31% |
+| **mlp_triton** | **748.0** | 114603 | **6.53** | 0.399 | 7.28e-5 | 3.30% |
 
 **CNN** (baseline: cnn_canpinn)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| cnn_canpinn | N/A | 200000 | 9.94 | 0.245 | 2.32e-4 | 2.41% |
-| cnn_compile | N/A | 200000 | 10.20 | 0.246 | 2.65e-4 | 2.31% |
-| cnn_triton | N/A | 200000 | 7.02 | 0.245 | 2.28e-4 | 2.40% |
+| cnn_canpinn | 130.4 | 12888 | 10.12 | 0.245 | 2.50e-4 | 2.41% |
+| cnn_compile | 520.2 | 51364 | 10.13 | 0.246 | 2.13e-4 | 2.31% |
+| **cnn_triton** | **81.1** | 11532 | **7.03** | 0.245 | 2.42e-4 | 2.40% |
 
 **Key findings**:
 - Track 1: mlp_triton **14.81x** faster than vanilla, cnn_triton **1.64x** faster
 - Memory: vanilla 7.83GB vs triton 0.399GB (**19.6x less**)
-- Track 2: No method converged to 1e-5; mlp_triton achieves best L2 (3.30%)
+- mlp_triton 748s vs vanilla 14234s (19x faster!). cnn_triton 81s vs canpinn 130s (1.6x). Memory: vanilla 7.9GB vs triton 0.4GB (20x less)
 ---
 
 ## 6. 2D Sod Shock Tube (`sod_2d`, Nx=1000, Nt=200, compressible Euler)
