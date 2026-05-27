@@ -27,7 +27,7 @@ ALL_CASES = [
     "ldc_2d", "ldc_3d",
     "tgv_2d", "tgv_3d",
     "transport_2d", "sod_1d",
-    "diffusion_1d", "diffusion_2d", "tgv_3d_smooth", "poisson_2d",
+    "diffusion_1d", "diffusion_2d", "tgv_3d_smooth", "poisson_2d", "poisson_3d",
 ]
 
 
