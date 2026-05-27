@@ -190,7 +190,107 @@ def euler_bwd_kernel(
     tl.store(gradE_ptr   + base, grad_e,   mask=mask)
 
 
-# ── BOUNDARY GRADIENT EXTENSION ─────────────────────────────────────────────
+# ── FUSED BOUNDARY GRADIENT KERNEL ─────────────────────────────────────────
+@triton.jit
+def euler_boundary_kernel(
+    U_ptr, M_ptr, E_ptr,
+    Gr_ptr, Gm_ptr, Ge_ptr,
+    gradR_ptr, gradM_ptr, gradE_ptr,
+    Nt: tl.constexpr, Nx: tl.constexpr,
+    dx: tl.constexpr, dt: tl.constexpr, gamma: tl.constexpr,
+    Ni_nx: tl.constexpr, Ni_nt: tl.constexpr,
+    N_total_boundary: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """Fused boundary gradients: t=0, t=Nt-1, x=0, x=Nx-1 in one kernel."""
+    pid = tl.program_id(0)
+    idx = pid * BLOCK + tl.arange(0, BLOCK)
+    mask = idx < N_total_boundary
+
+    inv_2dx = 1.0 / (2.0 * dx)
+    inv_2dt = 1.0 / (2.0 * dt)
+    stride = Nx
+    out_st = Ni_nx
+
+    # Layout: [t=0 (Ni_nx pts)] [t=Nt-1 (Ni_nx pts)] [x=0 (Ni_nt pts)] [x=Nx-1 (Ni_nt pts)]
+    N_time = 2 * Ni_nx
+
+    is_t0 = idx < Ni_nx
+    is_tN = (idx >= Ni_nx) & (idx < N_time)
+    is_x0 = (idx >= N_time) & (idx < N_time + Ni_nt)
+    is_xN = idx >= (N_time + Ni_nt)
+
+    # ---- Time boundaries ----
+    t_ix = tl.where(is_t0, idx, idx - Ni_nx)
+    g_t0 = t_ix
+    g_tN = (Ni_nt - 1) * out_st + t_ix
+
+    gr0 = tl.load(Gr_ptr + g_t0, mask=is_t0 & mask, other=0.0)
+    gm0 = tl.load(Gm_ptr + g_t0, mask=is_t0 & mask, other=0.0)
+    ge0 = tl.load(Ge_ptr + g_t0, mask=is_t0 & mask, other=0.0)
+    pos_t0 = t_ix + 1
+    tl.atomic_add(gradR_ptr + pos_t0, -gr0 * inv_2dt, mask=is_t0 & mask)
+    tl.atomic_add(gradM_ptr + pos_t0, -gm0 * inv_2dt, mask=is_t0 & mask)
+    tl.atomic_add(gradE_ptr + pos_t0, -ge0 * inv_2dt, mask=is_t0 & mask)
+
+    grN = tl.load(Gr_ptr + g_tN, mask=is_tN & mask, other=0.0)
+    gmN = tl.load(Gm_ptr + g_tN, mask=is_tN & mask, other=0.0)
+    geN = tl.load(Ge_ptr + g_tN, mask=is_tN & mask, other=0.0)
+    pos_tN = (Nt - 1) * stride + (t_ix + 1)
+    tl.atomic_add(gradR_ptr + pos_tN, grN * inv_2dt, mask=is_tN & mask)
+    tl.atomic_add(gradM_ptr + pos_tN, gmN * inv_2dt, mask=is_tN & mask)
+    tl.atomic_add(gradE_ptr + pos_tN, geN * inv_2dt, mask=is_tN & mask)
+
+    # ---- Space boundaries ----
+    s_local = idx - N_time
+    s_it = tl.where(is_x0, s_local, s_local - Ni_nt)
+
+    # x=0
+    pos_left = (s_it + 1) * stride
+    rho_l = tl.load(U_ptr + pos_left, mask=is_x0 & mask, other=1.0)
+    m_l = tl.load(M_ptr + pos_left, mask=is_x0 & mask, other=0.0)
+    e_l = tl.load(E_ptr + pos_left, mask=is_x0 & mask, other=1.0)
+    u_l = m_l / rho_l
+
+    g_x0 = s_it * out_st
+    gr_l = tl.load(Gr_ptr + g_x0, mask=is_x0 & mask, other=0.0)
+    gm_l = tl.load(Gm_ptr + g_x0, mask=is_x0 & mask, other=0.0)
+    ge_l = tl.load(Ge_ptr + g_x0, mask=is_x0 & mask, other=0.0)
+
+    df2r = -0.5 * (3.0 - gamma) * u_l * u_l
+    df3r = -gamma * e_l * u_l / rho_l + (gamma - 1.0) * u_l * u_l * u_l
+    df2m = (3.0 - gamma) * u_l
+    df3m = gamma * e_l / rho_l - 1.5 * (gamma - 1.0) * u_l * u_l
+    df3e = gamma * u_l
+
+    tl.atomic_add(gradR_ptr + pos_left, (-gm_l * df2r - ge_l * df3r) * inv_2dx, mask=is_x0 & mask)
+    tl.atomic_add(gradM_ptr + pos_left, (-gr_l - gm_l * df2m - ge_l * df3m) * inv_2dx, mask=is_x0 & mask)
+    tl.atomic_add(gradE_ptr + pos_left, (-gm_l * (gamma - 1.0) - ge_l * df3e) * inv_2dx, mask=is_x0 & mask)
+
+    # x=Nx-1
+    pos_right = (s_it + 1) * stride + (Nx - 1)
+    rho_r = tl.load(U_ptr + pos_right, mask=is_xN & mask, other=1.0)
+    m_r = tl.load(M_ptr + pos_right, mask=is_xN & mask, other=0.0)
+    e_r = tl.load(E_ptr + pos_right, mask=is_xN & mask, other=1.0)
+    u_r = m_r / rho_r
+
+    g_xN = s_it * out_st + (Ni_nx - 1)
+    gr_r = tl.load(Gr_ptr + g_xN, mask=is_xN & mask, other=0.0)
+    gm_r = tl.load(Gm_ptr + g_xN, mask=is_xN & mask, other=0.0)
+    ge_r = tl.load(Ge_ptr + g_xN, mask=is_xN & mask, other=0.0)
+
+    df2r_r = -0.5 * (3.0 - gamma) * u_r * u_r
+    df3r_r = -gamma * e_r * u_r / rho_r + (gamma - 1.0) * u_r * u_r * u_r
+    df2m_r = (3.0 - gamma) * u_r
+    df3m_r = gamma * e_r / rho_r - 1.5 * (gamma - 1.0) * u_r * u_r
+    df3e_r = gamma * u_r
+
+    tl.atomic_add(gradR_ptr + pos_right, (gm_r * df2r_r + ge_r * df3r_r) * inv_2dx, mask=is_xN & mask)
+    tl.atomic_add(gradM_ptr + pos_right, (gr_r + gm_r * df2m_r + ge_r * df3m_r) * inv_2dx, mask=is_xN & mask)
+    tl.atomic_add(gradE_ptr + pos_right, (gm_r * (gamma - 1.0) + ge_r * df3e_r) * inv_2dx, mask=is_xN & mask)
+
+
+# ── LEGACY BOUNDARY (kept for reference/verification) ─────────────────────
 def _add_boundary_gradients_euler(U, M, E, Gr, Gm, Ge, grad_r, grad_m, grad_e, dx, dt, gamma):
     """Analytic boundary injection evaluated EXACTLY at boundary Jacobians."""
     Nt, Nx = U.shape
@@ -287,12 +387,18 @@ class _CompressibleEulerTriton(torch.autograd.Function):
             Nt, Nx, dx, dt, gamma
         )
 
-        # Reshape for boundary fixes
-        Gr = Gr_flat.reshape(Nt - 2, Nx - 2)
-        Gm = Gm_flat.reshape(Nt - 2, Nx - 2)
-        Ge = Ge_flat.reshape(Nt - 2, Nx - 2)
-
-        _add_boundary_gradients_euler(Rho, M, E, Gr, Gm, Ge, grad_rho, grad_m, grad_e, dx, dt, gamma)
+        # Boundary gradients (fused Triton kernel instead of PyTorch slicing)
+        Ni_nx = Nx - 2
+        Ni_nt = Nt - 2
+        N_boundary = 2 * Ni_nx + 2 * Ni_nt
+        BLOCK_B = 256
+        grid_b = ((N_boundary + BLOCK_B - 1) // BLOCK_B,)
+        euler_boundary_kernel[grid_b](
+            Rho, M, E, Gr_flat, Gm_flat, Ge_flat,
+            grad_rho, grad_m, grad_e,
+            Nt, Nx, dx, dt, gamma,
+            Ni_nx, Ni_nt, N_boundary, BLOCK_B
+        )
 
         return grad_rho, grad_m, grad_e, None, None, None
 
