@@ -1,4 +1,4 @@
-# Kernel Launch 量化分析：8 个 Case 的详细拆解
+# Kernel Launch 量化分析：所有 Case 的详细拆解
 
 ## 测量方法
 
@@ -19,7 +19,9 @@
 | tgv_2d | 20×64×64 | 317 | 199 | 1.6x | 3 fields + time |
 | tgv_3d | 10×32³ | 750 | 355 | 2.1x | 4 fields + time |
 | transport_2d | 20×64×64 | 215 | 111 | 1.9x | 1 field |
-| sod_2d | 1000×200 | 335 | 309 | 1.1x | kernel 效率低 |
+| sod_1d | 1000×200 | 335 | 309 | 1.1x | boundary 开销主导 |
+| **poisson_2d** | 64×64 | 52 | 17 | **3.1x** | 最简单 kernel，单场 |
+| **poisson_3d** | 32³ | 93 | 20 | **4.7x** | 单场 3D，减少最多 |
 
 **规律**：
 - 物理场越多（3D NS 有 4 个场）→ PyTorch FD 的 kernel 数暴增 → Triton 减少越多
@@ -144,7 +146,7 @@ boundary fix               ~100    6个面的边界梯度修正
 
 ---
 
-# 8 个 Kernel 的进一步优化空间分析
+# 所有 Kernel 的进一步优化空间分析
 
 ## 总结表
 
@@ -157,7 +159,9 @@ boundary fix               ~100    6个面的边界梯度修正
 | tgv_2d | fwd + bwd | reduction + grad_scale + **boundary(20)** | ~28 | ⚠️ 中等 |
 | tgv_3d | fwd + bwd | reduction + grad_scale + **boundary(36)** | ~44 | ⚠️ 中等 |
 | transport_2d | fwd + bwd | reduction + grad_scale + **boundary(6)** | ~14 | ✅ 简单 |
-| sod_2d | fwd + bwd | reduction + grad_scale + **boundary(20)** | ~28 | ⚠️ 中等 |
+| sod_1d | fwd + bwd | reduction + grad_scale + **boundary(20)** | ~28 | ⚠️ 中等 |
+| **poisson_2d** | fwd + bwd | reduction + grad_scale + **boundary(4)** | ~12 | ✅ 简单 |
+| **poisson_3d** | fwd + bwd | reduction + grad_scale + **boundary(6)** | ~14 | ✅ 简单 |
 
 ---
 
@@ -292,7 +296,50 @@ TGV 有**时间维度**的边界（t=0 和 t=Nt-1），比纯空间多了 2 个�
 1. 2D dispatch → 1D flatten（GPU 利用率低）
 2. backward kernel 寄存器压力过高（Euler adjoint 变量太多）
 
-这是 8 个 kernel 中唯一需要**重写**（而非追加优化）的。
+这是所有 kernel 中唯一需要**重写**（而非追加优化）的。
+
+---
+
+### 9. poisson_2d（最简单的 kernel，Laplacian 自伴随）
+
+```
+已 Fuse:    poisson2d_fwd_kernel + poisson2d_bwd_kernel
+未 Fuse:    (res²).mean()              → 4 个 kernel
+            2/N * grad_out scale       → 4 个 kernel
+            _add_boundary_gradients    → 4 个 kernel (4 条边各 1 次 +=)
+```
+
+**实测 backward 拆解**：
+- bwd_kernel: 0.008 ms (9.6%)
+- boundary:   0.031 ms (80.7%)
+- 其他:       0.010 ms
+
+**特点**：Poisson 是自伴随的（Laplacian 的伴随就是 Laplacian），所以 forward 和 backward kernel 结构完全一样。Kernel 本身极快（0.008ms），boundary 占了 80% 但绝对值很小（0.031ms）。
+
+**优化空间**：几乎没有。0.03ms 的 boundary 开销不值得 fuse。**这是最优秀的 kernel。**
+
+**Track 0 加速**：total 1.46x（2D 64×64 太小，launch overhead 主导。大网格下会更好。）
+
+---
+
+### 10. poisson_3d（3D Laplacian，kernel 减少比最高）
+
+```
+已 Fuse:    poisson3d_fwd_kernel + poisson3d_bwd_kernel
+未 Fuse:    (res²).mean()              → 4 个 kernel
+            2/N * grad_out scale       → 4 个 kernel
+            _add_boundary_gradients    → 6 个 kernel (6 个面各 1 次 +=)
+```
+
+**实测 backward 拆解**：
+- bwd_kernel: 0.008 ms (5.7%)
+- boundary:   0.132 ms (94.3%)
+
+**Kernel launch 减少比最高（4.7x）**：PyTorch 93 个 kernel → Triton 20 个。因为 Poisson 只有 1 个场 + Laplacian 是最简单的 stencil，PyTorch FD 的每个操作都显得"多余"，fusion 收益最大。
+
+**Track 0 加速**：fwd 14.34x, total 2.30x。Forward 加速极其显著（14x！），backward 被 boundary（0.132ms 的 PyTorch 切片）拖慢。
+
+**优化空间**：boundary 占了 94%。如果 fuse boundary → total 加速可达 ~5x。但 Poisson boundary 只有 6 次简单的 `+=` 操作，绝对值 0.13ms 不大。
 
 ---
 
