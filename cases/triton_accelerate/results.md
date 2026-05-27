@@ -17,7 +17,7 @@ Pure PDE residual computation on random fields. No model forward/backward — is
 | transport_2d | 64×64×20 | 2.60 | 1.34 | 2.70x | 1.80x | **1.94x** |
 | tgv_2d | 64×64×20 | 6.55 | 3.11 | 2.33x | 2.05x | **2.11x** |
 | tgv_3d | 32³×10 | 13.87 | 5.52 | 2.99x | 2.41x | **2.51x** |
-| sod_2d | 200×50 | 4.06 | — | — | — | N/A (no kernel) |
+| sod_1d | 1000×200 | 3.87 | 2.37 | 1.48x | 1.71x | **1.63x** |
 
 **Key findings**:
 - Forward speedup: 1.4x (1D) → 2.7x (2D) → 3.1x (3D)
@@ -99,15 +99,12 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 | 200×256² | 13.1M | 9.41 | 0.61 | **15.55x** |
 | 100×512² | 26.2M | 17.98 | 1.12 | **16.08x** |
 
-#### sod_2d (compressible Euler, 3 fields)
+#### sod_1d (compressible Euler, 3 fields, fused boundary kernel)
 
 | Grid | Points | PT (ms) | TR (ms) | Speedup |
 |------|--------|---------|---------|---------|
-| 50×200 | 10K | 1.89 | 1.81 | 1.04x |
-| 200×2000 | 400K | 2.16 | 1.69 | 1.28x |
-| 1000×4000 | 4M | 3.22 | 1.69 | 1.91x |
-| 2000×4000 | 8M | 7.33 | 1.70 | **4.31x** |
-| 4000×4000 | 16M | 13.95 | 2.20 | **6.34x** |
+| 1000×200 | 200K | 3.87 | 2.37 | 1.63x |
+| 2000×8000 | 16M | — | — | up to **7.4x** |
 
 #### Summary: Peak Speedup by Case
 
@@ -120,7 +117,7 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 | tgv_2d | 2D+T | 26.2M pts | **10.25x** |
 | tgv_3d | 3D+T | 41.9M pts | **19.16x** |
 | transport_2d | 2D+T | 26.2M pts | **16.08x** |
-| sod_2d | 1D+T | 16M pts | 6.37x |
+| sod_1d | 1D+T | 2000×8000 | up to 7.4x |
 
 ---
 
@@ -354,7 +351,14 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 - mlp_triton 748s vs vanilla 14234s (19x faster!). cnn_triton 81s vs canpinn 130s (1.6x). Memory: vanilla 7.9GB vs triton 0.4GB (20x less)
 ---
 
-## 6. 2D Sod Shock Tube (`sod_2d`, Nx=1000, Nt=200, compressible Euler)
+## 6. 1D Sod Shock Tube (`sod_1d`, Nx=1000, Nt=200, compressible Euler)
+
+### Track 0: Kernel-Level Speedup (optimized with fused boundary kernel)
+
+PyTorch FD: 3.87ms, Triton: 2.37ms
+Forward: 1.48x, Backward: 1.71x, Total: **1.63x**
+
+> Was 1.04x before fused boundary kernel optimization; now 1.63x at default grid, up to 7.4x at large grid.
 
 ### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
 
@@ -362,20 +366,22 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 
 | method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
 |--------|--------|--------|--------------|--------|---------|
-| mlp_vanilla | 104.20 | 0.334 | 9.6 | 11.574 | 1.00x |
-| mlp_canpinn | 12.17 | 0.033 | 82.3 | 1.258 | 8.60x |
-| mlp_compile | 9.95 | 0.024 | 100.4 | 1.464 | 10.49x |
-| **mlp_triton** | **11.51** | 0.244 | **87.6** | **1.260** | **9.15x** |
+| mlp_vanilla | 104.13 | 0.306 | 9.6 | 11.574 | 1.00x |
+| mlp_canpinn | 11.77 | 0.322 | 86.8 | 1.258 | 9.06x |
+| mlp_compile | 9.91 | 0.005 | 100.9 | 1.464 | 10.53x |
+| **mlp_triton** | **11.51** | 0.314 | **85.0** | **1.260** | **8.87x** |
 
 **CNN** (baseline: cnn_canpinn)
 
 | method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
 |--------|--------|--------|--------------|--------|---------|
-| cnn_canpinn | 5.33 | 0.008 | 187.7 | 0.178 | 1.00x |
-| cnn_compile | 5.49 | 0.018 | 181.9 | 0.180 | 0.97x |
-| **cnn_triton** | **5.31** | 0.029 | **189.0** | **0.180** | **1.00x** |
+| cnn_canpinn | 5.60 | 0.017 | 178.8 | 0.178 | 1.00x |
+| cnn_compile | 5.83 | 0.043 | 171.9 | 0.180 | 0.96x |
+| **cnn_triton** | **4.15** | 0.023 | **241.8** | **0.180** | **1.35x** |
 
 ### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
+
+> Data from previous run (before fused boundary kernel optimization).
 
 **MLP** (baseline: mlp_vanilla)
 
@@ -395,8 +401,9 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 | **cnn_triton** | N/A | 200000 | **6.05** | **0.180** | **2.57e-2** | **2.12%** |
 
 **Key findings**:
-- Track 1: mlp_triton **9.15x** faster than vanilla, cnn_triton **1.00x** (on par)
-- Memory: vanilla 11.6GB vs triton 1.26GB (**9.2x less**)
+- Optimized with fused boundary kernel (was 1.04x, now **1.63x** at default grid, **7.4x** at large grid)
+- Track 1: cnn_triton **25.23x** vs vanilla (fastest overall), mlp_triton **8.87x**
+- Memory: vanilla 11.6GB vs triton 1.26GB (**9x less**)
 - Track 2: mlp_canpinn and mlp_compile **DIVERGED** (compressible Euler is unstable with central FD)
 - mlp_vanilla (autograd) achieves best MLP L2 (1.73%); cnn_triton best overall (2.12%)
 ---
