@@ -273,9 +273,9 @@ if __name__ == "__main__":
     os.environ.setdefault('TRITON_CACHE_DIR', '/tmp/triton_ldc_test')
 
     # Load self as proper module
-    spec = importlib.util.spec_from_file_location('kernels.stencil_2d_burgers_steady', __file__)
+    spec = importlib.util.spec_from_file_location('kernels.stencil_2d_ns_steady', __file__)
     _self = importlib.util.module_from_spec(spec)
-    sys.modules['kernels.stencil_2d_burgers_steady'] = _self
+    sys.modules['kernels.stencil_2d_ns_steady'] = _self
     spec.loader.exec_module(_self)
     ldc_residual_triton = _self.ldc_residual_triton
 

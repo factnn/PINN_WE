@@ -122,7 +122,7 @@ def get_kernel_fns(case_name):
         return pt_fn, tr_fn, spacing_fn
 
     elif case_name == "ldc_2d":
-        from kernels.stencil_2d_burgers_steady import ldc_residual_triton
+        from kernels.stencil_2d_ns_steady import ldc_residual_triton
         nu = 0.01
         def pt_fn(fields, spacings):
             U, V, P = fields; dx, dy = spacings

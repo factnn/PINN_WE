@@ -143,7 +143,7 @@ def loss_canpinn(model, ctx):
 
 
 def loss_triton(model, ctx):
-    from kernels.stencil_2d_burgers_steady import ldc_residual_triton
+    from kernels.stencil_2d_ns_steady import ldc_residual_triton
     U, V, P = infer(model, ctx)
     return ldc_residual_triton(U, V, P, ctx["dx"], ctx["dy"], nu) + 10 * _bc_loss(U, V)
 
