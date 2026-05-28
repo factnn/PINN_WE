@@ -18,6 +18,9 @@ Pure PDE residual computation on random fields. No model forward/backward — is
 | tgv_2d | 64×64×20 | 6.55 | 3.11 | 2.33x | 2.05x | **2.11x** |
 | tgv_3d | 32³×10 | 13.87 | 5.52 | 2.99x | 2.41x | **2.51x** |
 | sod_1d | 1000×200 | 3.87 | 2.37 | 1.48x | 1.71x | **1.63x** |
+| diffusion_1d | 128×50 | 1.31 | 1.09 | — | — | **1.21x** |
+| diffusion_2d | 64×64×20 | 2.46 | 1.11 | 2.69x | — | **2.22x** |
+| poisson_2d | 64×64 | 1.30 | 1.13 | — | — | **1.15x** |
 
 **Key findings**:
 - Forward speedup: 1.4x (1D) → 2.7x (2D) → 3.1x (3D)
