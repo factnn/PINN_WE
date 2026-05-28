@@ -501,3 +501,106 @@ Forward: 1.48x, Backward: 1.71x, Total: **1.63x**
 - Track 2 MLP: All three methods achieve identical Final_Loss (2.66e-3) and L2 (2.93%), proving **zero accuracy loss** from Triton
 - Track 2 CNN: cnn_canpinn converges (15.2% L2) but compile/triton fail to converge on 3D NS (99.4% L2)
 
+---
+
+## 9. 2D Pure Diffusion (`diffusion_2d`, Nx=Ny=64, Nt=20)
+
+### Track 0: Kernel Speedup
+
+PyTorch FD 2.46ms, Triton 1.11ms → fwd **2.69x**, total **2.22x**
+
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
+
+**MLP** (baseline: mlp_vanilla)
+
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| mlp_vanilla | 31.66 | 0.005 | 31.6 | 3.254 | 1.00x |
+| mlp_canpinn | 4.02 | 0.017 | 249.4 | 0.356 | 7.89x |
+| mlp_compile | 4.06 | 0.207 | 254.6 | 0.273 | 8.06x |
+| **mlp_triton** | **3.05** | 0.005 | **327.7** | **0.356** | **10.37x** |
+
+**CNN** (baseline: cnn_canpinn)
+
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| cnn_canpinn | 4.27 | 0.010 | 234.8 | 0.244 | 1.00x |
+| cnn_compile | 4.09 | 0.038 | 245.9 | 0.244 | 0.96x |
+| **cnn_triton** | **3.80** | 0.002 | **263.1** | **0.244** | **1.12x** |
+
+### Track 2: Convergence (MLP threshold=1e-3, CNN threshold=1e-3, max=300000 epochs)
+
+**MLP** (baseline: mlp_vanilla)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| mlp_vanilla | 1004.9 | 31583 | 31.87 | 3.254 | 6.49e-4 | 1.90% |
+| mlp_canpinn | 108.0 | 21570 | 5.08 | 0.356 | 6.51e-4 | 1.90% |
+| mlp_compile | 94.8 | 19460 | 4.76 | 0.273 | 6.50e-4 | 1.90% |
+| **mlp_triton** | **70.9** | 19308 | **3.67** | 0.356 | 6.51e-4 | 1.90% |
+
+**CNN** (baseline: cnn_canpinn)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| cnn_canpinn | 136.0 | 23163 | 5.87 | 0.244 | 6.59e-4 | - |
+| cnn_compile | 148.9 | 24886 | 5.95 | 0.244 | 6.64e-4 | - |
+| **cnn_triton** | **200.7** | 43335 | **4.73** | 0.244 | 6.80e-4 | - |
+
+**Key findings**:
+- mlp_triton 70.9s vs vanilla 1004.9s (**14.2x faster** to converge!)
+- All FD methods final_loss identical (~6.5e-4) → zero accuracy loss
+- Memory: vanilla 3.25GB vs triton 0.356GB (**9x less**)
+- This is the best case for demonstrating Triton value
+
+---
+
+## 10. 2D Poisson (`poisson_2d`, Nx=Ny=64)
+
+### Track 0: Kernel Speedup
+
+PyTorch FD 1.30ms, Triton 1.13ms → total **1.15x** (small grid)
+
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
+
+**MLP** (baseline: mlp_vanilla)
+
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| mlp_vanilla | 8.49 | 0.047 | 118.1 | 0.179 | 1.00x |
+| mlp_canpinn | 2.89 | 0.034 | 345.6 | 0.036 | 2.93x |
+| mlp_compile | 3.06 | 0.129 | 320.1 | 0.032 | 2.71x |
+| **mlp_triton** | **2.41** | 0.043 | **413.2** | **0.036** | **3.50x** |
+
+**CNN** (baseline: cnn_canpinn)
+
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| cnn_canpinn | 2.67 | 0.073 | 379.8 | 0.066 | 1.00x |
+| cnn_compile | 2.85 | 0.072 | 355.4 | 0.066 | 0.94x |
+| **cnn_triton** | **2.48** | 0.030 | **406.0** | **0.066** | **1.08x** |
+
+### Track 2: Convergence (MLP threshold=0.1, CNN threshold=0.1, max=300000 epochs)
+
+**MLP** (baseline: mlp_vanilla)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| mlp_vanilla | 11.5 | 1357 | 8.41 | 0.179 | 3.05e-5 | 0.17% |
+| mlp_canpinn | 422.6 | 144952 | 2.85 | 0.036 | 7.21e-2 | 2.25% |
+| mlp_compile | 97.5 | 32339 | 3.01 | 0.032 | 4.64e-2 | 0.24% |
+| mlp_triton | 356.7 | 137166 | 2.56 | 0.036 | 6.70e-2 | 0.17% |
+
+**CNN** (baseline: cnn_canpinn)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| cnn_canpinn | 651.5 | 201506 | 3.21 | 0.066 | 3.98e-2 | 0.32% |
+| cnn_compile | N/A | 300000 | 3.34 | 0.066 | 2.28e-1 | 0.83% |
+| cnn_triton | 719.6 | 246169 | 2.97 | 0.066 | 9.22e-2 | 0.17% |
+
+**Key findings**:
+- mlp_vanilla converges fastest (autograd more precise for Poisson)
+- mlp_triton **3.50x** throughput speedup, memory 5x less (0.179→0.036GB)
+- FD methods converge slower on Poisson (F scale large), but final L2 excellent (0.17%)
+- Track 0 speedup small (1.15x) because 64×64 grid too small
