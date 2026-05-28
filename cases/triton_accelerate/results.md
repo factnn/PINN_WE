@@ -21,6 +21,7 @@ Pure PDE residual computation on random fields. No model forward/backward — is
 | diffusion_1d | 128×50 | 0.64 | 0.45 | 3.12x | 1.35x | **1.21x** |
 | diffusion_2d | 64×64×20 | 1.93 | 0.58 | 13.79x | 2.87x | **2.22x** |
 | poisson_2d | 64×64 | 0.87 | 0.52 | 1.10x | 1.78x | **1.15x** |
+| poisson_3d | 32³ | 2.13 | 1.41 | 1.87x | 1.45x | **1.51x** |
 
 **Key findings**:
 - Forward speedup: 1.4x (1D) → 2.7x (2D) → 3.1x (3D)
@@ -664,3 +665,55 @@ PyTorch FD 1.31ms, Triton 1.09ms → total **1.21x**
 - Track 1: mlp_triton 2.19x (1D problem, small grid, limited speedup)
 - All methods achieve sub-1% L2 error (smooth solution, no shock)
 - CNN L2=0.17-0.19% (very good), vanilla L2=0.04% (best, autograd more precise)
+
+---
+
+## 12. 3D Poisson (`poisson_3d`, Nx=Ny=Nz=32)
+
+### Track 0: Kernel Speedup
+
+PyTorch FD 2.13ms, Triton 1.41ms → fwd **1.87x**, bwd **1.45x**, total **1.51x**
+
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
+
+**MLP** (baseline: mlp_vanilla)
+
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| mlp_vanilla | 17.77 | 0.005 | 56.3 | 1.783 | 1.00x |
+| mlp_canpinn | 3.49 | 0.102 | 290.1 | 0.154 | 5.16x |
+| mlp_compile | 3.67 | 0.089 | 274.3 | 0.120 | 4.88x |
+| **mlp_triton** | **2.69** | 0.026 | **374.1** | **0.154** | **6.65x** |
+
+**CNN** (baseline: cnn_canpinn)
+
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| cnn_canpinn | 3.92 | 0.018 | 255.8 | 0.055 | 1.00x |
+| cnn_compile | 3.95 | 0.052 | 253.3 | 0.055 | 0.99x |
+| **cnn_triton** | **3.70** | 0.004 | **270.3** | **0.055** | **1.06x** |
+
+### Track 2: Convergence (max=300000 epochs)
+
+**MLP** (baseline: mlp_vanilla)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| mlp_vanilla | - | 300000 | 17.77 | 1.783 | 1.68e-5 | 0.02% |
+| mlp_canpinn | - | 300000 | 3.49 | 0.154 | 1.28e-2 | 0.08% |
+| mlp_compile | - | 300000 | 3.67 | 0.120 | 1.29e-2 | 0.08% |
+| **mlp_triton** | - | 300000 | **2.69** | **0.154** | 1.27e-2 | **0.07%** |
+
+**CNN** (baseline: cnn_canpinn)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| cnn_canpinn | N/A | 300000 | 3.92 | 0.055 | 119.3 | 98.7% |
+| cnn_compile | N/A | 300000 | 3.95 | 0.055 | 119.3 | 98.6% |
+| cnn_triton | N/A | 300000 | 3.70 | 0.055 | 118.2 | 97.9% |
+
+**Key findings**:
+- mlp_triton **6.65x** throughput speedup, memory 1.78GB → 0.154GB (**11.6x less**)
+- MLP L2=0.07% (excellent), all FD methods consistent → **zero accuracy loss**
+- CNN completely failed on 3D Poisson (Conv3d capacity insufficient at 32³)
+- New stencil_3d_poisson kernel verified to machine precision (1.5e-15)
