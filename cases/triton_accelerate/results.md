@@ -640,24 +640,24 @@ PyTorch FD 1.31ms, Triton 1.09ms → total **1.21x**
 | cnn_compile | 2.79 | 0.016 | 357.8 | 0.024 | 0.91x |
 | **cnn_triton** | **2.38** | 0.070 | **425.3** | **0.024** | **1.07x** |
 
-### Track 2: Convergence (300000 epochs, need to determine threshold from CSV later)
+### Track 2: Convergence (MLP threshold=0.02, CNN threshold=0.002, max=300000 epochs)
 
 **MLP** (baseline: mlp_vanilla)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| mlp_vanilla | 160.3 | 29298 | 5.47 | 0.083 | 1.53e-6 | 0.04% |
-| mlp_canpinn | N/A | 300000 | 2.50 | 0.028 | 1.29e-2 | 0.76% |
-| mlp_compile | N/A | 300000 | 2.64 | 0.027 | 1.64e-3 | 0.08% |
-| mlp_triton | N/A | 300000 | 2.33 | 0.028 | 1.41e-2 | 0.78% |
+| mlp_vanilla | **3.4** | 647 | 5.47 | 0.083 | 1.53e-6 | 0.04% |
+| mlp_canpinn | 109.2 | 40941 | 2.50 | 0.028 | 1.29e-2 | 0.76% |
+| mlp_compile | 3.0 | 1090 | 2.64 | 0.027 | 1.64e-3 | 0.08% |
+| mlp_triton | 130.5 | 53065 | 2.33 | 0.028 | 1.41e-2 | 0.78% |
 
 **CNN** (baseline: cnn_canpinn)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| cnn_canpinn | N/A | 300000 | 2.55 | 0.024 | 1.23e-3 | 0.17% |
-| cnn_compile | N/A | 300000 | 2.79 | 0.024 | 1.46e-3 | 0.18% |
-| **cnn_triton** | N/A | 300000 | **2.38** | **0.024** | 1.27e-3 | **0.19%** |
+| cnn_canpinn | 444.6 | 171363 | 2.55 | 0.024 | 1.23e-3 | 0.17% |
+| cnn_compile | 481.9 | 168873 | 2.79 | 0.024 | 1.46e-3 | 0.18% |
+| **cnn_triton** | **428.8** | 178831 | **2.38** | **0.024** | 1.27e-3 | **0.19%** |
 
 **Key findings**:
 - Pure 1D heat equation (u_t = nu*u_xx), new stencil_1d_heat kernel
