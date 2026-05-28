@@ -609,3 +609,55 @@ PyTorch FD 1.30ms, Triton 1.13ms → total **1.15x** (small grid)
 - mlp_triton **3.50x** throughput speedup, memory 5x less (0.179→0.036GB)
 - FD methods converge slower on Poisson (F scale large), but final L2 excellent (0.17%)
 - Track 0 speedup small (1.15x) because 64×64 grid too small
+
+---
+
+## 11. 1D Heat Equation (`diffusion_1d`, Nx=128, Nt=50, nu=0.5)
+
+### Track 0: Kernel Speedup
+
+PyTorch FD 1.31ms, Triton 1.09ms → total **1.21x**
+
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
+
+**MLP** (baseline: mlp_vanilla)
+
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| mlp_vanilla | 5.10 | 0.139 | 197.0 | 0.083 | 1.00x |
+| mlp_canpinn | 2.43 | 0.036 | 412.6 | 0.028 | 2.09x |
+| mlp_compile | 2.64 | 0.069 | 375.2 | 0.027 | 1.90x |
+| **mlp_triton** | **2.33** | 0.068 | **431.1** | **0.028** | **2.19x** |
+
+**CNN** (baseline: cnn_canpinn)
+
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| cnn_canpinn | 2.55 | 0.021 | 393.4 | 0.024 | 1.00x |
+| cnn_compile | 2.79 | 0.016 | 357.8 | 0.024 | 0.91x |
+| **cnn_triton** | **2.38** | 0.070 | **425.3** | **0.024** | **1.07x** |
+
+### Track 2: Convergence (300000 epochs, need to determine threshold from CSV later)
+
+**MLP** (baseline: mlp_vanilla)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| mlp_vanilla | 160.3 | 29298 | 5.47 | 0.083 | 1.53e-6 | 0.04% |
+| mlp_canpinn | N/A | 300000 | 2.50 | 0.028 | 1.29e-2 | 0.76% |
+| mlp_compile | N/A | 300000 | 2.64 | 0.027 | 1.64e-3 | 0.08% |
+| mlp_triton | N/A | 300000 | 2.33 | 0.028 | 1.41e-2 | 0.78% |
+
+**CNN** (baseline: cnn_canpinn)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| cnn_canpinn | N/A | 300000 | 2.55 | 0.024 | 1.23e-3 | 0.17% |
+| cnn_compile | N/A | 300000 | 2.79 | 0.024 | 1.46e-3 | 0.18% |
+| **cnn_triton** | N/A | 300000 | **2.38** | **0.024** | 1.27e-3 | **0.19%** |
+
+**Key findings**:
+- Pure 1D heat equation (u_t = nu*u_xx), new stencil_1d_heat kernel
+- Track 1: mlp_triton 2.19x (1D problem, small grid, limited speedup)
+- All methods achieve sub-1% L2 error (smooth solution, no shock)
+- CNN L2=0.17-0.19% (very good), vanilla L2=0.04% (best, autograd more precise)
