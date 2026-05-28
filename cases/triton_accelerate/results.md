@@ -118,6 +118,11 @@ As grid size increases, PyTorch FD becomes memory-bandwidth-bound while Triton's
 | tgv_3d | 3D+T | 41.9M pts | **19.16x** |
 | transport_2d | 2D+T | 26.2M pts | **16.08x** |
 | sod_1d | 1D+T | 2000×8000 | up to 7.4x |
+| diffusion_1d | 1D+T | 8M pts | **5.12x** |
+| diffusion_2d | 2D+T | 200×512² | **16.05x** |
+| poisson_2d | 2D | 4096² | **7.21x** |
+| poisson_3d | 3D | 256³ | **12.25x** |
+| tgv_3d_smooth | 3D+T | 20×128³ | **19.16x** |
 
 ---
 
