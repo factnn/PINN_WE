@@ -42,6 +42,20 @@ SCALING_GRIDS = {
         (50, 200), (100, 1000), (200, 2000), (500, 2000),
         (1000, 4000), (2000, 4000), (4000, 4000), (2000, 8000),
     ],
+    "diffusion_1d": [
+        (50, 128), (50, 512), (50, 2048), (100, 2048),
+        (200, 2048), (500, 2048), (1000, 2048), (2000, 4096),
+    ],
+    "diffusion_2d": [
+        (10, 32), (20, 64), (20, 128), (50, 128), (50, 256),
+        (100, 256), (200, 256), (100, 512), (200, 512),
+    ],
+    "tgv_3d_smooth": [
+        (5, 16), (10, 32), (10, 48), (10, 64), (10, 96),
+        (20, 64), (20, 96), (20, 128), (40, 96),
+    ],
+    "poisson_2d": [32, 64, 128, 256, 512, 1024, 2048, 4096],
+    "poisson_3d": [16, 32, 48, 64, 96, 128, 160, 192, 256],
 }
 
 
@@ -88,6 +102,25 @@ def make_random_fields(case_name, size, device="cuda", dtype=torch.float32):
         M = torch.randn(Nt, Nx, device=device, dtype=dtype).requires_grad_(True)
         E = torch.randn(Nt, Nx, device=device, dtype=dtype).abs().requires_grad_(True)
         return R, M, E
+    elif case_name == "diffusion_1d":
+        Nt, Nx = size
+        return (torch.randn(Nt, Nx, device=device, dtype=dtype).requires_grad_(True),)
+    elif case_name == "diffusion_2d":
+        Nt, N = size
+        return (torch.randn(Nt, N, N, device=device, dtype=dtype).requires_grad_(True),)
+    elif case_name == "tgv_3d_smooth":
+        Nt, N = size
+        U = torch.randn(Nt, N, N, N, device=device, dtype=dtype).requires_grad_(True)
+        V = torch.randn(Nt, N, N, N, device=device, dtype=dtype).requires_grad_(True)
+        W = torch.randn(Nt, N, N, N, device=device, dtype=dtype).requires_grad_(True)
+        P = torch.randn(Nt, N, N, N, device=device, dtype=dtype).requires_grad_(True)
+        return U, V, W, P
+    elif case_name == "poisson_2d":
+        N = size
+        return (torch.randn(N, N, device=device, dtype=dtype).requires_grad_(True),)
+    elif case_name == "poisson_3d":
+        N = size
+        return (torch.randn(N, N, N, device=device, dtype=dtype).requires_grad_(True),)
 
 
 def get_kernel_fns(case_name):
@@ -211,6 +244,88 @@ def get_kernel_fns(case_name):
         def spacing_fn(size):
             Nt, Nx = size
             return (1.0 / (Nx - 1), 0.2 / (Nt - 1))
+        return pt_fn, tr_fn, spacing_fn
+
+    elif case_name == "diffusion_1d":
+        from kernels.stencil_1d_heat import heat1d_residual_triton
+        nu = 0.5
+        def pt_fn(fields, spacings):
+            U = fields[0]; dx, dt = spacings
+            u_t = (U[2:,1:-1] - U[:-2,1:-1]) / (2*dt)
+            u_xx = (U[1:-1,2:] - 2*U[1:-1,1:-1] + U[1:-1,:-2]) / dx**2
+            return (u_t - nu*u_xx).pow(2).mean()
+        def tr_fn(fields, spacings):
+            U = fields[0]; dx, dt = spacings
+            return heat1d_residual_triton(U, dx, dt, nu)
+        def spacing_fn(size):
+            Nt, Nx = size
+            return (2.0/(Nx-1), 1.0/(Nt-1))
+        return pt_fn, tr_fn, spacing_fn
+
+    elif case_name == "diffusion_2d":
+        from kernels.stencil_2d_transport import advdiff_residual_triton
+        nu = 0.01; u0 = 0.0; v0 = 0.0
+        def pt_fn(fields, spacings):
+            C = fields[0]; dx, dy, dt = spacings
+            from cases.diffusion_2d.physics import _pde_residual_fd
+            return _pde_residual_fd(C, dx, dy, dt)
+        def tr_fn(fields, spacings):
+            C = fields[0]; dx, dy, dt = spacings
+            return advdiff_residual_triton(C, dx, dy, dt, nu, u0, v0)
+        def spacing_fn(size):
+            Nt, N = size
+            return (2*np.pi/N, 2*np.pi/N, 1.0/(Nt-1))
+        return pt_fn, tr_fn, spacing_fn
+
+    elif case_name == "tgv_3d_smooth":
+        from kernels.stencil_3d_ns_unsteady import ns3d_residual_triton
+        nu = 0.1
+        def pt_fn(fields, spacings):
+            U, V, W, P = fields; dx, dy, dz, dt = spacings
+            from cases.tgv_3d_smooth.physics import _pde_residual_fd
+            return _pde_residual_fd(U, V, W, P, dx, dy, dz, dt)
+        def tr_fn(fields, spacings):
+            U, V, W, P = fields; dx, dy, dz, dt = spacings
+            return ns3d_residual_triton(U, V, W, P, dx, dy, dz, dt, nu)
+        def spacing_fn(size):
+            Nt, N = size
+            d = 2*np.pi/N; dt = 1.0/(Nt-1)
+            return (d, d, d, dt)
+        return pt_fn, tr_fn, spacing_fn
+
+    elif case_name == "poisson_2d":
+        from kernels.stencil_2d_poisson import poisson2d_residual_triton
+        def pt_fn(fields, spacings):
+            U = fields[0]; dx, dy = spacings
+            i = slice(1,-1)
+            u_xx = (U[2:,i] - 2*U[i,i] + U[:-2,i]) / dx**2
+            u_yy = (U[i,2:] - 2*U[i,i] + U[i,:-2]) / dy**2
+            F = torch.zeros_like(U)  # f=0 for scaling (just testing kernel speed)
+            return ((u_xx+u_yy)**2).mean()
+        def tr_fn(fields, spacings):
+            U = fields[0]; dx, dy = spacings
+            F = torch.zeros_like(U)
+            return poisson2d_residual_triton(U, F, dx, dy)
+        def spacing_fn(size):
+            return (1.0/(size-1), 1.0/(size-1))
+        return pt_fn, tr_fn, spacing_fn
+
+    elif case_name == "poisson_3d":
+        from kernels.stencil_3d_poisson import poisson3d_residual_triton
+        def pt_fn(fields, spacings):
+            U = fields[0]; dx, dy, dz = spacings
+            i = slice(1,-1)
+            u_xx = (U[2:,i,i] - 2*U[i,i,i] + U[:-2,i,i]) / dx**2
+            u_yy = (U[i,2:,i] - 2*U[i,i,i] + U[i,:-2,i]) / dy**2
+            u_zz = (U[i,i,2:] - 2*U[i,i,i] + U[i,i,:-2]) / dz**2
+            return ((u_xx+u_yy+u_zz)**2).mean()
+        def tr_fn(fields, spacings):
+            U = fields[0]; dx, dy, dz = spacings
+            F = torch.zeros_like(U)
+            return poisson3d_residual_triton(U, F, dx, dy, dz)
+        def spacing_fn(size):
+            d = 1.0/(size-1)
+            return (d, d, d)
         return pt_fn, tr_fn, spacing_fn
 
 
