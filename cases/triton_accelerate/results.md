@@ -22,6 +22,7 @@ Pure PDE residual computation on random fields. No model forward/backward — is
 | diffusion_2d | 64×64×20 | 1.93 | 0.58 | 13.79x | 2.87x | **2.22x** |
 | poisson_2d | 64×64 | 0.87 | 0.52 | 1.10x | 1.78x | **1.15x** |
 | poisson_3d | 32³ | 2.13 | 1.41 | 1.87x | 1.45x | **1.51x** |
+| tgv_3d_smooth | 32³×10 | 14.27 | 6.22 | 2.98x | 2.17x | **2.29x** |
 
 **Key findings**:
 - Forward speedup: 1.4x (1D) → 2.7x (2D) → 3.1x (3D)
@@ -730,11 +731,27 @@ PyTorch FD 2.13ms, Triton 1.41ms → fwd **1.87x**, bwd **1.45x**, total **1.51x
 
 ### Track 0: Kernel Speedup
 
-Same kernel as tgv_3d (already in Track 0 table as tgv_3d_smooth).
+PyTorch FD 14.27ms, Triton 6.22ms → fwd **2.98x**, bwd **2.17x**, total **2.29x**
 
-### Track 1
+### Track 1: Throughput (warmup=100, measure=2900 steps, 5 runs)
 
-Track 1 not run separately (same kernel as tgv_3d).
+> vanilla OOM. Baseline is mlp_canpinn.
+
+**MLP** (baseline: mlp_canpinn)
+
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| mlp_canpinn | 24.16 | 0.522 | 42.1 | 3.386 | 1.00x |
+| mlp_compile | 20.68 | 0.424 | 47.9 | 3.722 | 1.14x |
+| **mlp_triton** | **21.95** | 0.529 | **46.5** | **3.389** | **1.10x** |
+
+**CNN** (baseline: cnn_canpinn)
+
+| method | avg_ms | std_ms | tput(steps/s) | mem_GB | speedup |
+|--------|--------|--------|--------------|--------|---------|
+| cnn_canpinn | 31.83 | 0.002 | 31.4 | 0.307 | 1.00x |
+| cnn_compile | 31.55 | 0.040 | 31.7 | 0.313 | 1.01x |
+| **cnn_triton** | **29.65** | 0.001 | **33.7** | **0.311** | **1.07x** |
 
 ### Track 2: Convergence (max=300000 epochs)
 
