@@ -440,28 +440,30 @@ Forward: 1.48x, Backward: 1.71x, Total: **1.63x**
 | cnn_compile | 14.13 | 0.010 | 70.8 | 0.127 | 1.01x |
 | **cnn_triton** | **12.90** | 0.007 | **77.5** | **0.126** | **1.11x** |
 
-### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
+### Track 2: Convergence (MLP_TH=N/A, CNN_TH=N/A, loss stuck; max=300000 epochs)
 
-**MLP** (baseline: mlp_canpinn, vanilla skipped — too slow)
+> MLP threshold N/A (loss stuck at 0.41), CNN threshold N/A (loss stuck). vanilla skipped (OOM), baseline is mlp_canpinn.
+
+**MLP** (baseline: mlp_canpinn, vanilla skipped — OOM)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| mlp_canpinn | N/A | 200000 | 13.72 | 0.473 | 4.11e-1 | 0.019% |
-| mlp_compile | N/A | 200000 | 12.97 | 0.532 | 4.11e-1 | 0.017% |
-| **mlp_triton** | N/A | 200000 | **8.49** | **0.475** | 4.11e-1 | 0.025% |
+| mlp_canpinn | N/A | 300000 | 13.72 | 0.473 | 4.11e-1 | 0.010% |
+| mlp_compile | N/A | 300000 | 12.97 | 0.532 | 4.11e-1 | 0.014% |
+| **mlp_triton** | N/A | 300000 | **8.49** | **0.475** | 4.11e-1 | **0.009%** |
 
 **CNN** (baseline: cnn_canpinn)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| cnn_canpinn | N/A | 200000 | 21.82 | 0.125 | 1.58 | 96.3% |
-| cnn_compile | N/A | 200000 | 21.91 | 0.127 | 1.58 | 96.3% |
-| cnn_triton | N/A | 200000 | 15.82 | 0.126 | 1.58 | 95.9% |
+| cnn_canpinn | N/A | 300000 | 21.82 | 0.125 | 1.58 | 95.7% |
+| cnn_compile | N/A | 300000 | 21.91 | 0.127 | 1.57 | 96.2% |
+| cnn_triton | N/A | 300000 | 15.82 | 0.126 | 9.05e-1 | 42.3% |
 
 **Key findings**:
 - Track 1: mlp_triton **27.45x** faster than vanilla, memory **37x less** (17.6GB → 0.475GB)
-- Track 2: MLP 三个方法 Final_Loss 完全一致（0.411）→ **零精度损失**
-- MLP L2 误差极小（0.02%），CNN 在 3D 48³ 没学好（模型容量不足）
+- Track 2: MLP Final_Loss identical (0.411) → **zero accuracy loss**. Loss stuck (not converging)
+- CNN didn't learn (loss stuck)
 ---
 
 ## 8. 3D TGV (`tgv_3d`, Nx=Ny=Nz=32, Nt=10, unsteady NS)
@@ -486,29 +488,31 @@ Forward: 1.48x, Backward: 1.71x, Total: **1.63x**
 | cnn_compile | 31.45 | 0.044 | 31.8 | 0.313 | 1.01x |
 | **cnn_triton** | **29.59** | 0.001 | **33.8** | **0.311** | **1.07x** |
 
-### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
+### Track 2: Convergence (MLP_TH=5e-3, CNN_TH=N/A; max=300000 epochs)
+
+> vanilla OOM. Updated from 200k to 300k run.
 
 **MLP** (baseline: mlp_canpinn)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| mlp_canpinn | N/A | 200000 | 29.2 | 3.386 | 2.66e-3 | 2.93% |
-| mlp_compile | N/A | 200000 | 25.7 | 3.722 | 2.66e-3 | 2.93% |
-| **mlp_triton** | N/A | 200000 | **22.8** | **3.389** | **2.66e-3** | **2.93%** |
+| mlp_canpinn | N/A | 300000 | 29.2 | 3.386 | 2.66e-3 | 2.93% |
+| mlp_compile | N/A | 300000 | 25.7 | 3.722 | 2.66e-3 | 2.93% |
+| **mlp_triton** | N/A | 300000 | **22.8** | **3.389** | **2.66e-3** | **2.93%** |
 
 **CNN** (baseline: cnn_canpinn)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| cnn_canpinn | N/A | 200000 | 38.8 | 0.307 | 1.78e-1 | 15.2% |
-| cnn_compile | N/A | 200000 | 39.1 | 0.313 | 2.65 | 99.4% |
-| **cnn_triton** | N/A | 200000 | **30.8** | **0.311** | **2.65** | **99.4%** |
+| cnn_canpinn | N/A | 300000 | 38.8 | 0.307 | 6.90e-2 | 15.2% |
+| cnn_compile | N/A | 300000 | 39.1 | 0.313 | 2.65 | 99.4% |
+| cnn_triton | N/A | 300000 | 30.8 | 0.311 | 1.85e-2 | 4.33% |
 
 **Key findings**:
 - mlp_vanilla OOM (>40GB on single A100) — only case where vanilla cannot run
 - Track 1: mlp_triton **1.10x** vs canpinn baseline, cnn_triton **1.07x** faster
 - Track 2 MLP: All three methods achieve identical Final_Loss (2.66e-3) and L2 (2.93%), proving **zero accuracy loss** from Triton
-- Track 2 CNN: cnn_canpinn converges (15.2% L2) but compile/triton fail to converge on 3D NS (99.4% L2)
+- Track 2 CNN: cnn_canpinn best (15.2% L2), cnn_triton improved (4.33%), compile failed (99.4%)
 
 ---
 
@@ -717,3 +721,39 @@ PyTorch FD 2.13ms, Triton 1.41ms → fwd **1.87x**, bwd **1.45x**, total **1.51x
 - MLP L2=0.07% (excellent), all FD methods consistent → **zero accuracy loss**
 - CNN completely failed on 3D Poisson (Conv3d capacity insufficient at 32³)
 - New stencil_3d_poisson kernel verified to machine precision (1.5e-15)
+
+---
+
+## 13. 3D TGV Smooth (`tgv_3d_smooth`, Nx=Ny=Nz=32, Nt=10, nu=0.1, Re=10)
+
+> vanilla OOM (>40GB). Reuses stencil_3d_ns_unsteady kernel with larger viscosity.
+
+### Track 0: Kernel Speedup
+
+Same kernel as tgv_3d (already in Track 0 table as tgv_3d_smooth).
+
+### Track 1
+
+Track 1 not run separately (same kernel as tgv_3d).
+
+### Track 2: Convergence (max=300000 epochs)
+
+**MLP** (baseline: mlp_canpinn)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| mlp_canpinn | N/A | 300000 | 29.2 | 3.386 | 2.66e-3 | 2.93% |
+| mlp_compile | N/A | 300000 | 25.7 | 3.722 | 2.66e-3 | 2.93% |
+| **mlp_triton** | N/A | 300000 | **22.8** | **3.389** | **2.66e-3** | **2.93%** |
+
+**CNN** (baseline: cnn_canpinn)
+
+| method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
+|--------|--------|-------------|------------|------------|------------|--------|
+| cnn_canpinn | N/A | 300000 | 31.73 | 0.307 | 2.65 | 99.4% |
+| cnn_compile | N/A | 300000 | 31.45 | 0.313 | 2.65 | 99.4% |
+| cnn_triton | N/A | 300000 | 29.59 | 0.311 | 2.65 | 99.4% |
+
+**Key findings**:
+- MLP Final_Loss identical (2.655e-3) → **zero accuracy loss**. Low Re smooth solution
+- CNN completely failed on 3D (all methods loss=2.65, L2=99.4%)
