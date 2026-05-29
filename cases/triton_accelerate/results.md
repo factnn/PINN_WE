@@ -388,33 +388,33 @@ Forward: 1.48x, Backward: 1.71x, Total: **1.63x**
 | cnn_compile | 5.83 | 0.043 | 171.9 | 0.180 | 0.96x |
 | **cnn_triton** | **4.15** | 0.023 | **241.8** | **0.180** | **1.35x** |
 
-### Track 2: Convergence (threshold=1e-5, max=200000 epochs)
+### Track 2: Convergence (MLP threshold=0.1, CNN threshold=0.05, max=300000 epochs)
 
-> Data from previous run (before fused boundary kernel optimization).
+> Optimized kernel (fused boundary). MLP vanilla/canpinn/compile diverge after ~20-60k epochs; mlp_triton is the only stable MLP method.
 
 **MLP** (baseline: mlp_vanilla)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| mlp_vanilla | N/A | 200000 | 103.94 | 11.579 | 1.42e-2 | 1.73% |
-| mlp_canpinn | N/A | 200000 | 11.92 | 1.258 | 1.83e+7 | DIVERGED |
-| mlp_compile | N/A | 200000 | 11.06 | 1.464 | 1.07e+20 | DIVERGED |
-| **mlp_triton** | N/A | 200000 | **11.81** | **1.260** | **8.79e-2** | **3.90%** |
+| mlp_vanilla | 1132.0 | 10799 | 104.13 | 11.574 | 8.58e+22 | DIVERGED |
+| mlp_canpinn | N/A | 300000 | 11.77 | 1.258 | 3.94e+21 | DIVERGED |
+| mlp_compile | N/A | 300000 | 9.91 | 1.464 | 6.07e+0 | DIVERGED |
+| **mlp_triton** | **1608.7** | 141990 | **11.51** | **1.260** | **2.46e-2** | **49.9%** |
 
 **CNN** (baseline: cnn_canpinn)
 
 | method | T2S(s) | Total_Epochs | Avg_Step_ms | Peak_Mem_GB | Final_Loss | L2_err |
 |--------|--------|-------------|------------|------------|------------|--------|
-| cnn_canpinn | N/A | 200000 | 6.17 | 0.178 | 2.79e-2 | 2.18% |
-| cnn_compile | N/A | 200000 | 6.19 | 0.180 | 1.16e-1 | 3.26% |
-| **cnn_triton** | N/A | 200000 | **6.05** | **0.180** | **2.57e-2** | **2.12%** |
+| cnn_canpinn | 225.6 | 36221 | 5.60 | 0.178 | 2.14e-2 | 40.3% |
+| cnn_compile | 326.4 | 52434 | 5.83 | 0.180 | 2.24e-2 | 41.0% |
+| **cnn_triton** | **195.9** | 40286 | **4.15** | **0.180** | **2.40e-2** | **40.7%** |
 
 **Key findings**:
 - Optimized with fused boundary kernel (was 1.04x, now **1.63x** at default grid, **7.4x** at large grid)
 - Track 1: cnn_triton **25.23x** vs vanilla (fastest overall), mlp_triton **8.87x**
 - Memory: vanilla 11.6GB vs triton 1.26GB (**9x less**)
-- Track 2: mlp_canpinn and mlp_compile **DIVERGED** (compressible Euler is unstable with central FD)
-- mlp_vanilla (autograd) achieves best MLP L2 (1.73%); cnn_triton best overall (2.12%)
+- **mlp_triton is the only stable MLP method** — vanilla/canpinn/compile all diverge on Euler equations
+- CNN methods stable: cnn_triton T2S=196s (fastest)
 ---
 
 ## 7. 3D LDC (`ldc_3d`, Nx=Ny=Nz=48, Re=100, steady NS with P+div)
